@@ -55,11 +55,12 @@ class PlaceNet(nn.Module):
         self.relu6 = nn.ReLU(inplace=True)
         self.pool6 = nn.MaxPool2d(kernel_size=(3, 3), stride=(2, 2), dilation=(1, 1))
 
-        # self.fc7_new = nn.Linear(in_features=9216, out_features=4096)
-        # self.relu7 = nn.ReLU(inplace=True)
-        # self.drop7 = nn.Dropout(p=0.5, inplace=True)
-        # self.fc8_new = nn.Linear(in_features=4096, out_features=2543)
-        # self.prob = nn.Softmax()
+        # unused
+        self.fc7_new = nn.Linear(in_features=9216, out_features=4096)
+        self.relu7 = nn.ReLU(inplace=True)
+        self.drop7 = nn.Dropout(p=0.5, inplace=True)
+        self.fc8_new = nn.Linear(in_features=4096, out_features=2543)
+        self.prob = nn.Softmax()
 
     def forward(self, x):
         x = self.conv1(x)
