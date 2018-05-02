@@ -107,8 +107,8 @@ if __name__ == "__main__":
 
     sptm.build_graph()
     goal, goal_index = sptm.find_closest(goal_variable)
-    if (goal != None):
-        source, source_index = sptm.find_closest(source_variable)
-    print (source_index, goal_index)
-    path = sptm.find_shortest_path(source_index, goal_index)
-    print (path)
+    source, source_index = sptm.find_closest(source_variable)
+    if (source != None and goal != None):
+        print (source_index, goal_index)
+        path = sptm.find_shortest_path(source_index, goal_index)
+        print (path)

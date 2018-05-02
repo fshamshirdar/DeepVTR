@@ -12,6 +12,7 @@ class SPTM:
         self.memory = []
         self.graph = networkx.Graph()
         self.placeRecognition = placeRecognition
+        self.shortcuts = []
 
     def append_keyframe(self, input, terminal=False):
         rep = self.placeRecognition.forward(input)
@@ -21,21 +22,6 @@ class SPTM:
     def len(self):
         return len(self.memory);
 
-    def find_shortcuts(self):
-        shortcuts = []
-        for first in range(len(self.memory)):
-            for second in range(first + 1 + constants.MIN_SHORTCUT_DISTANCE, len(self.memory)):
-                values = []
-                for shift in range(-constants.SHORTCUT_WINDOW, constants.SHORTCUT_WINDOW + 1):
-                    first_shifted = first + shift
-                    second_shifted = second + shift
-                    if first_shifted < len(shortcuts_matrix) and second_shifted < len(shortcuts_matrix) and first_shifted >= 0 and second_shifted >= 0:
-                        values.append(shortcuts_matrix[first_shifted][second_shifted])
-                quality = median(values)
-                distance = get_distance(keyframe_coordinates[first], keyframe_coordinates[second])
-                shortcuts.append((quality, first, second, distance))
-        return np.array(shortcuts)
-
     def build_graph(self):
         memory_size = len(self.memory)
         self.graph = networkx.Graph()
@@ -44,12 +30,19 @@ class SPTM:
             self.graph.add_edge(first, first + 1)
             self.graph.add_edge(first + 1, first)
 
-#        self.compute_shortcuts(keyframes, keyframe_coordinates)
-#        for index in range(self.get_number_of_shortcuts()):
-#            edge = self.get_shortcut(index)
-#            first, second = edge
-#            assert abs(first - second) > MIN_SHORTCUT_DISTANCE
-#            self.add_double_sided_edge(*edge)
+            for second in range(first + 1 + constants.MIN_SHORTCUT_DISTANCE, len(self.memory)):
+                values = []
+                for shift in range(-constants.SHORTCUT_WINDOW, constants.SHORTCUT_WINDOW + 1):
+                    first_shifted = first + shift
+                    second_shifted = second + shift
+                    if first_shifted < memory_size and second_shifted < memory_size and first_shifted >= 0 and second_shifted >= 0:
+                        values.append(self.placeRecognition.compute_similarity_score(self.memory[first_shifted].rep, self.memory[second_shifted].rep))
+                quality = np.median(values)
+                # print (first, second, quality)
+                if (quality > constants.SHORTCUT_SIMILARITY_THRESHOLD):
+                    self.shortcuts.append((quality, first, second))
+                    self.graph.add_edge(first, second)
+                    self.graph.add_edge(second, first)
 
     def find_shortest_path(self, source, goal):
         shortest_path = networkx.shortest_path(self.graph, source=source, target=goal, weight='weight')
