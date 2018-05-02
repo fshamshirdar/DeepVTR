@@ -19,4 +19,4 @@ class PlaceRecognition:
 
     def compute_similarity_score(self, rep1, rep2):
         similarity_score = F.cosine_similarity(rep1, rep2)
-        return similarity_score
+        return similarity_score[0]

@@ -59,6 +59,38 @@ class SPTM:
         else:
             return None, -1
 
+    def relocalize(self, sequence):
+        sequence_reps = [ self.placeRecognition.forward(frame).data.cpu() for frame in sequence ]
+        memory_size = len(self.memory)
+        sequence_size = len(sequence)
+        similarity_matrix = []
+        # Applying SeqSLAM
+        for index in range(memory_size): # heuristic on the search domain
+            if (index + sequence_size >= memory_size):
+                continue
+            similarity_array = []
+            for sequence_index in range(0, sequence_size):
+                similarity_array.append(self.placeRecognition.compute_similarity_score(self.memory[sequence_index + index].rep, sequence_reps[sequence_index]))
+            similarity_matrix.append(similarity_array)
+
+        max_similarity_score = 0
+        best_velocity = 0
+        matched_index = -1
+        for index in range(memory_size-1):
+            for sequence_velocity in constants.SEQUENCE_VELOCITIES:
+                similarity_score = 0
+                for sequence_index in range(0, sequence_size):
+                    calculated_index = min(int(index + (sequence_velocity * sequence_index)), memory_size-1)
+                    similarity_score += similarity_matrix[calculated_index][sequence_index]
+                similarity_score /= sequence_size
+                if (similarity_score > max_similarity_score):
+                    matched_index = index
+                    max_similarity_score = similarity_score
+                    best_velocity = sequence_velocity
+
+        print (matched_index, max_similarity_score, best_velocity)
+        return matched_index
+
 if __name__ == "__main__":
     sptm = SPTM()
     sptm.append(1)

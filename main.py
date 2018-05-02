@@ -112,3 +112,5 @@ if __name__ == "__main__":
         print (source_index, goal_index)
         path = sptm.find_shortest_path(source_index, goal_index)
         print (path)
+
+    # sptm.relocalize([ goal_variable ])
