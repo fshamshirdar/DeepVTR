@@ -22,6 +22,12 @@ class SPTM:
     def len(self):
         return len(self.memory);
 
+    def get_memory(self):
+        return self.memory
+
+    def get_graph(self):
+        return self.graph
+
     def build_graph(self):
         memory_size = len(self.memory)
         self.graph = networkx.Graph()
@@ -66,11 +72,9 @@ class SPTM:
         similarity_matrix = []
         # Applying SeqSLAM
         for index in range(memory_size): # heuristic on the search domain
-            if (index + sequence_size >= memory_size):
-                continue
             similarity_array = []
             for sequence_index in range(0, sequence_size):
-                similarity_array.append(self.placeRecognition.compute_similarity_score(self.memory[sequence_index + index].rep, sequence_reps[sequence_index]))
+                similarity_array.append(self.placeRecognition.compute_similarity_score(self.memory[index].rep, sequence_reps[sequence_index]))
             similarity_matrix.append(similarity_array)
 
         max_similarity_score = 0
@@ -80,7 +84,7 @@ class SPTM:
             for sequence_velocity in constants.SEQUENCE_VELOCITIES:
                 similarity_score = 0
                 for sequence_index in range(0, sequence_size):
-                    calculated_index = min(int(index + (sequence_velocity * sequence_index)), memory_size-1)
+                    calculated_index = max(int(index - (sequence_velocity * sequence_index)), 0)
                     similarity_score += similarity_matrix[calculated_index][sequence_index]
                 similarity_score /= sequence_size
                 if (similarity_score > max_similarity_score):
@@ -88,8 +92,10 @@ class SPTM:
                     max_similarity_score = similarity_score
                     best_velocity = sequence_velocity
 
-        print (matched_index, max_similarity_score, best_velocity)
         return matched_index
+
+    def particle_filter_localization(self, sequence):
+        return -1
 
 if __name__ == "__main__":
     sptm = SPTM()
