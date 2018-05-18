@@ -19,6 +19,7 @@ class DataCollector:
 
     def random_walk(self):
         action = random.randint(0, 2)
+        print (action)
         state, _, done, _ = self.env.step(action)
         return state, action, done
 
@@ -31,7 +32,7 @@ class DataCollector:
         actions = []
         for i in range(constants.DATA_COLLECTION_PLAYING_ROUNG_LENGTH):
             current_state, action, done = self.random_walk()
-            if (done):
+            if (done == True):
                 break
 
             AirSimClientBase.write_png(os.path.join(self.base_path, str(index), str(i)+".png"), current_state)

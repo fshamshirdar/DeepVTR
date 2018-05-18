@@ -38,7 +38,7 @@ class AirSimEnv(gym.Env):
         print ("current: ", info)
         self.state = self.client.getImage()
         reward = 0
-        done = False
+        done = collided
 
         return self.state, reward, done, info
 
