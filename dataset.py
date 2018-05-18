@@ -3,12 +3,59 @@ import os
 import os.path
 import random
 import math
+import numpy as np
+
+import constants
 
 import torch.utils.data
 import torchvision.transforms as transforms
 
 def default_image_loader(path):
     return Image.open(path).convert('RGB')
+
+class RecordedDataLoader(torch.utils.data.Dataset):
+    def __init__(self, datapath, transform=None, loader=default_image_loader):
+        self.base_path = datapath
+        self.transform = transform
+        self.loader = loader
+        self.actions = []
+        self.size = 0
+        for index in open(os.path.join(self.base_path, "index.txt")):
+            index = index.strip()
+            action_file = open(os.path.join(self.base_path, index, "action.txt"))
+            actions = [int(val) for val in action_file.read().split('\n') if val.isdigit()]
+            self.actions.append(actions)
+            self.size += len(actions)-1
+
+    def __getitem__(self, index):
+        round_index = 0
+        while (index > len(self.actions[round_index])):
+            index -= len(self.actions[round_index])-1
+            round_index += 1
+
+        action = self.actions[round_index][index]
+
+        future_index = index + constants.DATASET_MAX_ACTION_DISTANCE
+        if future_index > len(self.actions[round_index]):
+            future_index = index + 1
+        previous_index = index + constants.DATASET_MAX_ACTION_DISTANCE
+        if previous_index < 0:
+            previous_index = 0
+
+        current_state = self.loader(os.path.join(self.base_path, str(round_index), str(index)+".png"))
+        previous_state = self.loader(os.path.join(self.base_path, str(round_index), str(previous_index)+".png"))
+        future_state = self.loader(os.path.join(self.base_path, str(round_index), str(future_index)+".png"))
+        if self.transform is not None:
+            current_state = self.transform(current_state)
+            previous_state = self.transform(previous_state)
+            future_state = self.transform(future_state)
+
+        state = np.concatenate([previous_state, current_state, future_state], axis=2)
+
+        return state, action
+
+    def __len__(self):
+        return self.size
 
 class TripletImageLoader(torch.utils.data.Dataset):
     def __init__(self, datapath, size=100000, transform=None,
@@ -139,3 +186,10 @@ class TripletImageLoader(torch.utils.data.Dataset):
 
         return anchor, positive, negative
     """
+
+
+if __name__ == "__main__":
+    db = RecordedDataLoader("dataset/")
+    state, action = db[1]
+    print (state.shape)
+    print (action)
