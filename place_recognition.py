@@ -8,6 +8,7 @@ import torchvision
 from torchvision import datasets, models, transforms
 
 import numpy as np
+import os
 import time
 from tqdm import tqdm
 from sklearn.metrics import accuracy_score
@@ -116,7 +117,7 @@ class PlaceRecognition:
                     # statistics
                     running_loss += loss.item()
                     # running_corrects += torch.sum(dist_a < dist_b)
-                    running_corrects += torch.sum(similarity_a < similarity_b)
+                    running_corrects += torch.sum(similarity_a > similarity_b)
 
                 epoch_loss = (float(running_loss) / float(len(data_loaders[phase].dataset))) * 100.0
                 epoch_acc = (float(running_corrects) / float(len(data_loaders[phase].dataset))) * 100.0
@@ -128,6 +129,7 @@ class PlaceRecognition:
                 if phase == 'val' and epoch_acc > best_acc:
                     best_acc = epoch_acc
                     best_model_wts = self.model.state_dict()
+                    print (checkpoint_path, epoch)
                     self.save_model(checkpoint_path, epoch)
 
             print()
@@ -140,7 +142,7 @@ class PlaceRecognition:
         self.model.load_state_dict(best_model_wts)
         return self.model
 
-    def save_model(checkpoint_path, epoch):
+    def save_model(self, checkpoint_path, epoch):
         print ("Saving a new checkpoint on epoch {}".format(epoch+1))
         state = {
             'epoch': epoch + 1,
