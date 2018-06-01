@@ -12,9 +12,13 @@ class TripletNet(nn.Module):
         embedded_y = self.embeddingnet(y)
         embedded_z = self.embeddingnet(z)
 
-#        dist_a = F.cosine_similarity(embedded_x, embedded_y)
-#        dist_b = F.cosine_similarity(embedded_x, embedded_z)
+        similarity_a = F.cosine_similarity(embedded_x, embedded_y)
+        similarity_b = F.cosine_similarity(embedded_x, embedded_z)
 
-        dist_a = F.pairwise_distance(embedded_x, embedded_y, 2)
-        dist_b = F.pairwise_distance(embedded_x, embedded_z, 2)
-        return dist_a, dist_b, embedded_x, embedded_y, embedded_z
+        return similarity_a, similarity_b, embedded_x, embedded_y, embedded_z
+
+
+#        dist_a = F.pairwise_distance(embedded_x, embedded_y, 2)
+#        dist_b = F.pairwise_distance(embedded_x, embedded_z, 2)
+#
+#        return dist_a, dist_b, embedded_x, embedded_y, embedded_z

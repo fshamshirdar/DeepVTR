@@ -18,8 +18,7 @@ class DataCollector:
         self.env.reset()
 
     def random_walk(self):
-        action = random.randint(0, 2)
-        print (action)
+        action = random.randint(0, constants.LOCO_NUM_CLASSES-1)
         state, _, done, _ = self.env.step(action)
         return state, action, done
 
@@ -30,28 +29,27 @@ class DataCollector:
 
         states = []
         actions = []
+
+        current_state = self.env.reset()
         for i in range(constants.DATA_COLLECTION_PLAYING_ROUNG_LENGTH):
-            current_state, action, done = self.random_walk()
+            future_state, action, done = self.random_walk()
             if (done == True):
                 break
 
             AirSimClientBase.write_png(os.path.join(self.base_path, str(index), str(i)+".png"), current_state)
             actionFile.write("%d\n" % action)
 
+            current_state = future_state
+
             ## since we are already storing the file the line above
             # states.append(current_state) 
-            # actions.append(action)
+            actions.append(action)
 
         actionFile.close()
         return states, actions
 
-    def collect(self):
-        for i in range(constants.DATA_COLLECTION_ROUNDS):
-            height = random.uniform(constants.DATA_COLLECTION_MIN_HEIGHT, constants.DATA_COLLECTION_MAX_HEIGHT)
-            self.env.set_height(height)
-            self.env.reset()
-            self.play_round(i)
-
-if __name__ == '__main__':
-    dataCollector = DataCollector("dataset/")
-    dataCollector.collect()
+    def collect(self, index):
+        for i in range(index, index+constants.DATA_COLLECTION_ROUNDS):
+            self.env.random_initial_pose()
+            _, actions = self.play_round(i)
+            print ("Round %d: collected %d images" % (i, len(actions)))

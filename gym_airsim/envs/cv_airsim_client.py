@@ -9,66 +9,42 @@ from PIL import Image
 from AirSimClient import *
 import constants
 
-class myAirSimClient(MultirotorClient):
+class CVAirSimClient(MultirotorClient):
     def __init__(self):        
         MultirotorClient.__init__(self)
         MultirotorClient.confirmConnection(self)
-        self.enableApiControl(True)
-        self.armDisarm(True)
 
-        self.z = -6
+#        AirSimClientBase.wait_key('Press any key to set camera-0 gimble to 15-degree pitch')
+#        self.setCameraOrientation(0, AirSimClientBase.toQuaternion(0, 0, 0)); #radians
 
-    def straight(self, duration, speed):
-        pitch, roll, yaw  = self.getPitchRollYaw()
-        vx = math.cos(yaw) * speed
-        vy = math.sin(yaw) * speed
-        self.moveByVelocityZ(vx, vy, self.z, duration, DrivetrainType.ForwardOnly)
-        start = time.time()
-        return start, duration
-
-    def yaw_right(self, duration):
-        angle = random.uniform(constants.DATA_COLLECTION_MIN_ANGLE, constants.DATA_COLLECTION_MAX_ANGLE)
-        self.rotateByYawRate(angle, duration)
-        start = time.time()
-        return start, duration
-
-    def yaw_left(self, duration):
-        angle = random.uniform(constants.DATA_COLLECTION_MIN_ANGLE, constants.DATA_COLLECTION_MAX_ANGLE)
-        self.rotateByYawRate(-angle, duration)
-        start = time.time()
-        return start, duration
+        self.pose = [0, 0, -6]
+        self.orientation = [0, 0, 0]
+        self.update_pose()
 
     def take_action(self, action):
-        x = 0
-        while self.getPosition().z_val < self.z-1:
-            self.moveToZ(self.z, 3)
-            time.sleep(1)
-            # print(self.getPosition().z_val, "and", x)
-            x = x + 1
-            if x > 10: # tried 10 times, has been collided probably
-                return True
-
-        start = time.time()
-        duration = 0 
-        collided = False
         if action == 0:
-            start, duration = self.straight(2, 1)
+            speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
+
+            vx = math.cos(self.orientation[2]) * speed
+            vy = math.sin(self.orientation[2]) * speed
+ 
+            self.pose[0] += vx
+            self.pose[1] += vy
         elif action == 1:
-            start, duration = self.yaw_right(1)
+            angle = random.uniform(constants.DATA_COLLECTION_MIN_ANGLE, constants.DATA_COLLECTION_MAX_ANGLE)
+            self.orientation[2] += angle
         elif action == 2:
-            start, duration = self.yaw_left(1)
+            angle = random.uniform(constants.DATA_COLLECTION_MIN_ANGLE, constants.DATA_COLLECTION_MAX_ANGLE)
+            self.orientation[2] -= angle 
         else:
             print ("wrong action: %d" % action)
 
-        while duration > time.time() - start:
-            if self.getCollisionInfo().has_collided == True:
-                return True    
+        self.update_pose()
 
-        self.moveByVelocity(0, 0, 0, 0.75)
-        self.rotateByYawRate(0, 0.75)
-        time.sleep(0.75)
-
-        return collided
+        time.sleep(0.5)
+        # collision = self.getCollisionInfo()
+        # return collision.has_collided
+        return False
 
     def getImage(self):
         responses = self.simGetImages([ImageRequest(0, AirSimImageType.Scene, False, False)])
@@ -131,14 +107,13 @@ class myAirSimClient(MultirotorClient):
     def set_height(self, z):
         self.z = -1 * z
 
-    def set_initial_pose(self, pose, orientation):
-        self.simSetPose(Pose(Vector3r(pose[0], pose[1], pose[2]), AirSimClientBase.toQuaternion(orientation[0], orientation[1], orientation[2])), False)
+    def set_pose(self, pose, orientation):
+        self.pose = pose
+        self.orientation = orientation
+        self.update_pose()
+
+    def update_pose(self):
+        self.simSetPose(Pose(Vector3r(*self.pose), AirSimClientBase.toQuaternion(*self.orientation)), True)
 
     def _reset(self):
-        self.reset()
-        time.sleep(0.2)
-        self.enableApiControl(True)
-        self.armDisarm(True)
-        time.sleep(1)
-        self.moveToZ(self.z, 3) 
-        time.sleep(3)
+        return True

@@ -13,46 +13,85 @@ import torchvision.transforms as transforms
 def default_image_loader(path):
     return Image.open(path).convert('RGB')
 
-class RecordedDataLoader(torch.utils.data.Dataset):
-    def __init__(self, datapath, transform=None, loader=default_image_loader):
+class RecordedAirSimDataLoader(torch.utils.data.Dataset):
+    def __init__(self, datapath, locomotion=True, transform=None, validation=False, loader=default_image_loader):
         self.base_path = datapath
+        self.is_locomotion = locomotion
         self.transform = transform
         self.loader = loader
+        self.indexes = []
         self.actions = []
         self.size = 0
-        for index in open(os.path.join(self.base_path, "index.txt")):
+        if validation:
+            phase = "validation.txt"
+        else:
+            phase = "training.txt"
+
+        for index in open(os.path.join(self.base_path, phase)):
             index = index.strip()
             action_file = open(os.path.join(self.base_path, index, "action.txt"))
             actions = [int(val) for val in action_file.read().split('\n') if val.isdigit()]
+            self.indexes.append(index)
             self.actions.append(actions)
             self.size += len(actions)-1
 
     def __getitem__(self, index):
+        round_index, index = self.getIndex(index)
+        if (self.is_locomotion):
+            return self.getLocomotionItem(round_index, index)
+        else:
+            return self.getPlaceItem(round_index, index)
+
+    def getIndex(self, index):
         round_index = 0
-        while (index > len(self.actions[round_index])):
+        while (index >= len(self.actions[round_index])-1):
             index -= len(self.actions[round_index])-1
             round_index += 1
+        return round_index, index
 
+    def getLocomotionItem(self, round_index, index):
         action = self.actions[round_index][index]
 
-        future_index = index + constants.DATASET_MAX_ACTION_DISTANCE
-        if future_index > len(self.actions[round_index]):
+        future_addition_index = random.randint(1, constants.DATASET_MAX_ACTION_DISTANCE)
+        future_index = index + future_addition_index
+        if future_index >= len(self.actions[round_index]):
             future_index = index + 1
-        previous_index = index + constants.DATASET_MAX_ACTION_DISTANCE
+        previous_index = index - 1
         if previous_index < 0:
             previous_index = 0
 
-        current_state = self.loader(os.path.join(self.base_path, str(round_index), str(index)+".png"))
-        previous_state = self.loader(os.path.join(self.base_path, str(round_index), str(previous_index)+".png"))
-        future_state = self.loader(os.path.join(self.base_path, str(round_index), str(future_index)+".png"))
+        current_state = self.loader(os.path.join(self.base_path, self.indexes[round_index], str(index)+".png"))
+        previous_state = self.loader(os.path.join(self.base_path, self.indexes[round_index], str(previous_index)+".png"))
+        future_state = self.loader(os.path.join(self.base_path, self.indexes[round_index], str(future_index)+".png"))
         if self.transform is not None:
             current_state = self.transform(current_state)
             previous_state = self.transform(previous_state)
             future_state = self.transform(future_state)
 
-        state = np.concatenate([previous_state, current_state, future_state], axis=2)
+        state = np.concatenate([previous_state, current_state, future_state], axis=0)
+        # state = np.concatenate([current_state, future_state], axis=0)
 
         return state, action
+
+    def getPlaceItem(self, round_index, index):
+        action = self.actions[round_index][index]
+
+        positive_addition_index = random.randint(1, constants.DATASET_MAX_ACTION_DISTANCE)
+        positive_index = index + positive_addition_index
+        if positive_index >= len(self.actions[round_index]):
+            positive_index = index + 1
+        negative_index = random.randint(1, self.size-1)
+        negative_round_index, negative_index = self.getIndex(negative_index)
+
+        anchor = self.loader(os.path.join(self.base_path, self.indexes[round_index], str(index)+".png"))
+        positive = self.loader(os.path.join(self.base_path, self.indexes[round_index], str(positive_index)+".png"))
+        negative = self.loader(os.path.join(self.base_path, self.indexes[negative_round_index], str(negative_index)+".png"))
+        if self.transform is not None:
+            anchor = self.transform(anchor)
+            positive = self.transform(positive)
+            negative = self.transform(negative)
+
+        return anchor, positive, negative
 
     def __len__(self):
         return self.size
@@ -189,7 +228,11 @@ class TripletImageLoader(torch.utils.data.Dataset):
 
 
 if __name__ == "__main__":
-    db = RecordedDataLoader("dataset/")
-    state, action = db[1]
-    print (state.shape)
-    print (action)
+    from tqdm import tqdm
+
+    kwargs = {'num_workers': 1, 'pin_memory': True} if torch.cuda.is_available() else {}
+    train_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader("dataset/", locomotion=True), batch_size=1, shuffle=False, **kwargs)
+    for data in tqdm(train_loader):
+        state, action = data
+        print (state.shape)
+        print (action)

@@ -17,32 +17,18 @@ from collections import deque
 
 class Agent:
     def __init__(self):
-        self.placeRecognition = PlaceRecognition()
-        self.sptm = SPTM(self.placeRecognition)
+        self.place_recognition = PlaceRecognition()
+        self.sptm = SPTM(self.place_recognition)
         self.navigation = Navigation()
 
-        self.normalize = transforms.Normalize(
-            # mean=[121.50361069 / 127., 122.37611083 / 127., 121.25987563 / 127.],
-            mean=[127. / 255., 127. / 255., 127. / 255.],
-            std=[1 / 255., 1 / 255., 1 / 255.]
-        )
-
-        self.preprocess = transforms.Compose([
-            transforms.Resize(227),
-            transforms.CenterCrop(227),
-            transforms.ToTensor(),
-            self.normalize
-        ])
-
-
     def load_place_weights(self, place_checkpoint_path):
-        self.placeRecognition.load_weights(place_checkpoint_path)
+        self.place_recognition.load_weights(place_checkpoint_path)
 
     def load_navigation_weights(self, navigation_checkpoint_path):
         self.navigation.load_weights(navigation_checkpoint_path)
 
     def cuda(self):
-        self.placeRecognition.cuda()
+        self.place_recognition.cuda()
         self.navigation.cuda()
 
     def dry_run_test(self, args):
@@ -92,3 +78,15 @@ class Agent:
 #            print (source_index, goal_index)
 #            path = self.sptm.find_shortest_path(source_index, goal_index)
 #            print (path)
+
+    def train_navigation(self, datapath, checkpoint_path, train_iterations):
+        self.navigation.train(datapath, checkpoint_path, train_iterations)
+
+    def eval_navigation(self, datapath):
+        self.navigation.eval(datapath)
+
+    def train_place_recognition(self, datapath, checkpoint_path, train_iterations):
+        self.place_recognition.train(datapath, checkpoint_path, train_iterations)
+
+    def eval_place_recognition(self, datapath):
+        self.place_recognition.eval(datapath)

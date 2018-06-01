@@ -8,17 +8,18 @@ import math
 import matplotlib.pyplot as plt
 import torch
 
+from data_collector import DataCollector
 from agent import Agent
 import constants
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='')
 
-    parser.add_argument('--mode', default='train', type=str, help='support option: train_place/train_nav/test')
-    parser.add_argument('--datapath', default='datapath', type=str, help='path to dataset')
+    parser.add_argument('--mode', default='train', type=str, help='support option: airsim_collect/train_place/train_nav/eval_place/eval_nav')
+    parser.add_argument('--datapath', default='dataset', type=str, help='path to dataset')
     parser.add_argument('--env', default='Pendulum-v0', type=str, help='open-ai gym environment')
-    parser.add_argument('--hidden1', default=400, type=int, help='hidden num of first fully connect layer')
-    parser.add_argument('--hidden2', default=300, type=int, help='hidden num of second fully connect layer')
+    parser.add_argument('--collect_index', default=0, type=int, help='collect intial index')
+    parser.add_argument('--checkpoint_path', type=str, help='Checkpoint path')
     parser.add_argument('--rate', default=0.001, type=float, help='learning rate')
     parser.add_argument('--prate', default=0.0001, type=float, help='policy net learning rate (only for DDPG)')
     parser.add_argument('--warmup', default=10000, type=int, help='time without training but only filling the replay memory')
@@ -54,4 +55,17 @@ if __name__ == "__main__":
     if torch.cuda.is_available():
         agent.cuda()
 
-    agent.dry_run_test(args)
+    if args.mode == 'airsim_collect':
+        dataCollector = DataCollector(args.datapath)
+        dataCollector.collect(args.collect_index)
+    elif args.mode == 'train_place':
+        agent.train_place_recognition(args.datapath, args.checkpoint_path, args.train_iter)
+    elif args.mode == 'eval_place':
+        agent.eval_place_recognition(args.datapath)
+    elif args.mode == 'train_nav':
+        agent.train_navigation(args.datapath, args.checkpoint_path, args.train_iter)
+    elif args.mode == 'eval_nav':
+        agent.eval_navigation(args.datapath)
+    else:
+        agent.dry_run_test(args)
+        pass
