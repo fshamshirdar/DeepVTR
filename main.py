@@ -10,6 +10,8 @@ import torch
 
 from data_collector import DataCollector
 from agent import Agent
+from place_recognition import PlaceRecognition
+from navigation import Navigation
 import constants
 
 if __name__ == "__main__":
@@ -45,12 +47,14 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    agent = Agent()
-
+    placeRecognition = PlaceRecognition()
+    navigation = Navigation()
     if args.place_checkpoint is not None:
-        agent.load_place_weights(args.place_checkpoint)
+        placeRecognition.load_weights(args.place_checkpoint)
     if args.navigation_checkpoint is not None:
-        agent.load_navigation_weights(args.navigation_checkpoint)
+        navigation.load_weights(args.navigation_checkpoint)
+
+    agent = Agent(placeRecognition, navigation)
 
     if torch.cuda.is_available():
         agent.cuda()
@@ -59,13 +63,13 @@ if __name__ == "__main__":
         dataCollector = DataCollector(args.datapath)
         dataCollector.collect(args.collect_index)
     elif args.mode == 'train_place':
-        agent.train_place_recognition(args.datapath, args.checkpoint_path, args.train_iter)
+        placeRecognition.train(args.datapath, args.checkpoint_path, args.train_iter)
     elif args.mode == 'eval_place':
-        agent.eval_place_recognition(args.datapath)
+        placeRecognition.eval(args.datapath)
     elif args.mode == 'train_nav':
-        agent.train_navigation(args.datapath, args.checkpoint_path, args.train_iter)
+        navigation.train(args.datapath, args.checkpoint_path, args.train_iter)
     elif args.mode == 'eval_nav':
-        agent.eval_navigation(args.datapath)
+        navigation.eval(args.datapath)
     else:
         agent.dry_run_test(args)
         pass

@@ -1,39 +1,28 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
+import gym
+import gym_airsim
 
-from torchvision import transforms
-from torch.autograd import Variable
-
-from sptm import SPTM
-from place_recognition import PlaceRecognition
-from navigation import Navigation
+from agent import Agent
+from AirSimClient import AirSimClientBase # needed for write_png
 import constants
 
-import os
-from PIL import Image
-import numpy as np
-from collections import deque
+class AirSimAgent(Agent):
+    def __init__(self):
+        self.agent = agent
+        self.env = gym.make('AirSim-v1')
+        self.env.reset()
 
-class Agent:
-    def __init__(self, placeRecognition=None, navigation=None):
-        if placeRecognition == None:
-            placeRecognition = PlaceRecognition()
-        if navigation == None:
-            navigation = PlaceRecognition()
-        self.place_recognition = placeRecognition
-        self.sptm = SPTM(self.place_recognition)
-        self.navigation = navigation
+    def random_walk(self):
+        action = random.randint(0, constants.LOCO_NUM_CLASSES-1)
+        next_state, _, done, _ = self.env.step(action)
+        return next_state, action, done
 
-    def load_place_weights(self, place_checkpoint_path):
-        self.place_recognition.load_weights(place_checkpoint_path)
-
-    def load_navigation_weights(self, navigation_checkpoint_path):
-        self.navigation.load_weights(navigation_checkpoint_path)
-
-    def cuda(self):
-        self.place_recognition.cuda()
-        self.navigation.cuda()
+    def teach(self):
+        state = self.env.reset()
+        for i in range(constants.AIRSIM_AGENT_TEACH_LEN):
+            next_state, action, done = random_walk()
+            self.agent.
+            if done:
+                break 
 
     def dry_run_test(self, args):
         goal_variable = None
