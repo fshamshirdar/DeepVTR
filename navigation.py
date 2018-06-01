@@ -130,7 +130,7 @@ class Navigation:
         return self.model
 
 
-    def save_model(checkpoint_path, epoch):
+    def save_model(self, checkpoint_path, epoch):
         print ("Saving a new checkpoint on epoch {}".format(epoch+1))
         state = {
             'epoch': epoch + 1,
