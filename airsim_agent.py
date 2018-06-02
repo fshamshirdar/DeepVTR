@@ -7,9 +7,10 @@ import constants
 
 class AirSimAgent(Agent):
     def __init__(self):
-        self.agent = agent
+        super(AirSimAgent, self).__init__()
         self.env = gym.make('AirSim-v1')
         self.env.reset()
+        self.goal = None
 
     def random_walk(self):
         action = random.randint(0, constants.LOCO_NUM_CLASSES-1)
@@ -20,54 +21,33 @@ class AirSimAgent(Agent):
         state = self.env.reset()
         for i in range(constants.AIRSIM_AGENT_TEACH_LEN):
             next_state, action, done = random_walk()
-            self.agent.
+            self.sptm.append_keyframe(state, action, done)
+            state = next_state
             if done:
                 break 
+        self.goal = state
+ 
+    def repeat(self):
+        if (self.goal == None):
+            return
 
-    def dry_run_test(self, args):
-        goal_variable = None
-        source_variable = None
-        source_picked = False
-        goal_index = 0
+        self.sptm.build_graph()
+        goal, goal_index, similarity = self.sptm.find_closest(self.goal)
+        sequence = deque(maxlen=constants.SEQUENCE_LENGTH)
 
-        with open(os.path.join(args.datapath, "teach.txt"), 'r') as reader:
-            for image_path in reader:
-                print (image_path)
-                image_path = image_path.strip()
-                image = Image.open(os.path.join(args.datapath, image_path)).convert('RGB')
-                image_tensor = self.preprocess(image)
+        current_state = self.env.reset()
+        previous_state = current_state
+        sequence.append(state)
+        while (True):
+            matched_index = self.sptm.relocalize(sequence)
+            path = self.sptm.find_shortest_path(matched_index, goal_index)
+            print (path)
+            future_state = path[1].state
+            action = self.navigation.forward(previous_state, current_state, future_state).data.cpu()
+            next_state, _, done, _ = self.env.step(action)
 
-#               plt.figure()
-#               plt.imshow(image_tensor.cpu().numpy().transpose((1, 2, 0)))
-#               plt.show()
-
-                image_tensor.unsqueeze_(0)
-                image_variable = Variable(image_tensor).cuda()
-                self.sptm.append_keyframe(image_variable)
-
-        with open(os.path.join(args.datapath, "repeat.txt"), 'r') as reader:
-            sequence = deque(maxlen=constants.SEQUENCE_LENGTH)
-            for image_path in reader:
-                print (image_path)
-                image_path = image_path.strip()
-                image = Image.open(os.path.join(args.datapath, image_path)).convert('RGB')
-                image_tensor = self.preprocess(image)
-
-#               plt.figure()
-#               plt.imshow(image_tensor.cpu().numpy().transpose((1, 2, 0)))
-#               plt.show()
-
-                image_tensor.unsqueeze_(0)
-                image_variable = Variable(image_tensor).cuda()
-                sequence.append(image_variable)
-
-                if (len(sequence) == constants.SEQUENCE_LENGTH):
-                    self.sptm.relocalize(sequence)
-
-#        self.sptm.build_graph()
-#        goal, goal_index = self.sptm.find_closest(goal_variable)
-#        source, source_index = self.sptm.find_closest(source_variable)
-#        if (source != None and goal != None):
-#            print (source_index, goal_index)
-#            path = self.sptm.find_shortest_path(source_index, goal_index)
-#            print (path)
+    def run(self):
+        print ("Running teaching phase")
+        self.teach()
+        print ("Running repeating phase")
+        self.repeat()

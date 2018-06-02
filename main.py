@@ -17,7 +17,7 @@ import constants
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='')
 
-    parser.add_argument('--mode', default='train', type=str, help='support option: airsim_collect/train_place/train_nav/eval_place/eval_nav')
+    parser.add_argument('--mode', default='train', type=str, help='support option: airsim_collect/train_place/train_nav/eval_place/eval_nav/airsim_agent')
     parser.add_argument('--datapath', default='dataset', type=str, help='path to dataset')
     parser.add_argument('--env', default='Pendulum-v0', type=str, help='open-ai gym environment')
     parser.add_argument('--collect_index', default=0, type=int, help='collect intial index')
@@ -54,10 +54,11 @@ if __name__ == "__main__":
     if args.navigation_checkpoint is not None:
         navigation.load_weights(args.navigation_checkpoint)
 
-    agent = Agent(placeRecognition, navigation)
+#    agent = Agent(placeRecognition, navigation)
 
     if torch.cuda.is_available():
-        agent.cuda()
+        placeRecognition.cuda()
+        navigation.cuda()
 
     if args.mode == 'airsim_collect':
         dataCollector = DataCollector(args.datapath)
@@ -70,6 +71,8 @@ if __name__ == "__main__":
         navigation.train(args.datapath, args.checkpoint_path, args.train_iter)
     elif args.mode == 'eval_nav':
         navigation.eval(args.datapath)
+    elif args.mode == 'airsim_agent':
+        airSimAgent = AirSimAgent(place_recognition, navigtion)
+        airSimAgent.run()
     else:
-        agent.dry_run_test(args)
         pass
