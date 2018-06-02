@@ -189,7 +189,7 @@ class PlaceRecognition:
             loss = loss_triplet + 0.001 * loss_embedd
 
             running_loss += loss.item()
-            running_corrects += torch.sum(similarity_a < similarity_b)
+            running_corrects += torch.sum(similarity_a > similarity_b)
 
         epoch_loss = (float(running_loss) / float(len(data_loaders[phase].dataset))) * 100.0
         epoch_acc = (float(running_corrects) / float(len(data_loaders[phase].dataset))) * 100.0
