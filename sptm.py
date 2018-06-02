@@ -14,7 +14,7 @@ class SPTM:
         self.placeRecognition = placeRecognition
         self.shortcuts = []
 
-    def append_keyframe(self, input, terminal=False):
+    def append_keyframe(self, input, action=None, terminal=False):
         rep = self.placeRecognition.forward(input)
         self.memory.append(Keyframe(state=input, rep=rep.data.cpu(), action=0, terminal=terminal)) # temporary for cpu()
         return True
@@ -59,11 +59,10 @@ class SPTM:
         similarities = np.asarray([ self.placeRecognition.compute_similarity_score(rep, keyframe.rep) for keyframe in self.memory ])
         index = similarities.argmax()
         similarity = similarities[index]
-        print (similarity)
         if (similarity > constants.GOAL_SIMILARITY_THRESHOLD):
-            return self.memory[index], index
+            return self.memory[index], index, similarity
         else:
-            return None, -1
+            return None, -1, 0.0
 
     def relocalize(self, sequence):
         sequence_reps = [ self.placeRecognition.forward(frame).data.cpu() for frame in sequence ]

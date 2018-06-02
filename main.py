@@ -10,12 +10,14 @@ import torch
 
 from data_collector import DataCollector
 from agent import Agent
+from place_recognition import PlaceRecognition
+from navigation import Navigation
 import constants
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='')
 
-    parser.add_argument('--mode', default='train', type=str, help='support option: airsim_collect/train_place/train_nav/eval_place/eval_nav')
+    parser.add_argument('--mode', default='train', type=str, help='support option: airsim_collect/train_place/train_nav/eval_place/eval_nav/airsim_agent')
     parser.add_argument('--datapath', default='dataset', type=str, help='path to dataset')
     parser.add_argument('--env', default='Pendulum-v0', type=str, help='open-ai gym environment')
     parser.add_argument('--collect_index', default=0, type=int, help='collect intial index')
@@ -45,27 +47,32 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    agent = Agent()
-
+    placeRecognition = PlaceRecognition()
+    navigation = Navigation()
     if args.place_checkpoint is not None:
-        agent.load_place_weights(args.place_checkpoint)
+        placeRecognition.load_weights(args.place_checkpoint)
     if args.navigation_checkpoint is not None:
-        agent.load_navigation_weights(args.navigation_checkpoint)
+        navigation.load_weights(args.navigation_checkpoint)
+
+#    agent = Agent(placeRecognition, navigation)
 
     if torch.cuda.is_available():
-        agent.cuda()
+        placeRecognition.cuda()
+        navigation.cuda()
 
     if args.mode == 'airsim_collect':
         dataCollector = DataCollector(args.datapath)
         dataCollector.collect(args.collect_index)
     elif args.mode == 'train_place':
-        agent.train_place_recognition(args.datapath, args.checkpoint_path, args.train_iter)
+        placeRecognition.train(args.datapath, args.checkpoint_path, args.train_iter)
     elif args.mode == 'eval_place':
-        agent.eval_place_recognition(args.datapath)
+        placeRecognition.eval(args.datapath)
     elif args.mode == 'train_nav':
-        agent.train_navigation(args.datapath, args.checkpoint_path, args.train_iter)
+        navigation.train(args.datapath, args.checkpoint_path, args.train_iter)
     elif args.mode == 'eval_nav':
-        agent.eval_navigation(args.datapath)
+        navigation.eval(args.datapath)
+    elif args.mode == 'airsim_agent':
+        airSimAgent = AirSimAgent(place_recognition, navigtion)
+        airSimAgent.run()
     else:
-        agent.dry_run_test(args)
         pass

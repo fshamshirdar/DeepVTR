@@ -43,7 +43,13 @@ class PlaceRecognition:
         self.model.cuda()
 
     def forward(self, input):
-        return self.model(input) # get representation
+        image_tensor = self.preprocess(input)
+        image_tensor.unsqueeze_(0)
+        use_gpu = torch.cuda.is_available()
+        if use_gpu:
+            image_tensor = image_tensor.cuda()
+        image_variable = Variable(image_tensor)
+        return self.model(image_variable) # get representation
 
     def compute_similarity_score(self, rep1, rep2):
         similarity_score = F.cosine_similarity(rep1, rep2)

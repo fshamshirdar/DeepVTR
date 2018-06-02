@@ -42,8 +42,17 @@ class Navigation:
     def cuda(self):
         self.model.cuda()
 
-    def forward(self, input):
-        return self.model(input) # get representation
+    def forward(self, previous_state, current_state, future_state):
+        previous_tensor = self.preprocess(previous_state)
+        current_tensor = self.preprocess(current_state)
+        future_tensor = self.preprocess(future_state)
+        packed_tensor = np.concatenate([previous_state, current_state, future_state], axis=0)
+        packed_tensor.unsqueeze_(0)
+        use_gpu = torch.cuda.is_available()
+        if use_gpu:
+            packed_tensor = packed_tensor.cuda()
+        packed_variable = Variable(packed_tensor)
+        return self.model(packed_variable)
 
     def train(self, datapath, checkpoint_path, train_iterations):
         use_gpu = torch.cuda.is_available()

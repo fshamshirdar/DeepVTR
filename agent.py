@@ -16,10 +16,14 @@ import numpy as np
 from collections import deque
 
 class Agent:
-    def __init__(self):
-        self.place_recognition = PlaceRecognition()
+    def __init__(self, placeRecognition=None, navigation=None):
+        if placeRecognition == None:
+            placeRecognition = PlaceRecognition()
+        if navigation == None:
+            navigation = PlaceRecognition()
+        self.place_recognition = placeRecognition
         self.sptm = SPTM(self.place_recognition)
-        self.navigation = Navigation()
+        self.navigation = navigation
 
     def load_place_weights(self, place_checkpoint_path):
         self.place_recognition.load_weights(place_checkpoint_path)
@@ -30,63 +34,3 @@ class Agent:
     def cuda(self):
         self.place_recognition.cuda()
         self.navigation.cuda()
-
-    def dry_run_test(self, args):
-        goal_variable = None
-        source_variable = None
-        source_picked = False
-        goal_index = 0
-
-        with open(os.path.join(args.datapath, "teach.txt"), 'r') as reader:
-            for image_path in reader:
-                print (image_path)
-                image_path = image_path.strip()
-                image = Image.open(os.path.join(args.datapath, image_path)).convert('RGB')
-                image_tensor = self.preprocess(image)
-
-#               plt.figure()
-#               plt.imshow(image_tensor.cpu().numpy().transpose((1, 2, 0)))
-#               plt.show()
-
-                image_tensor.unsqueeze_(0)
-                image_variable = Variable(image_tensor).cuda()
-                self.sptm.append_keyframe(image_variable)
-
-        with open(os.path.join(args.datapath, "repeat.txt"), 'r') as reader:
-            sequence = deque(maxlen=constants.SEQUENCE_LENGTH)
-            for image_path in reader:
-                print (image_path)
-                image_path = image_path.strip()
-                image = Image.open(os.path.join(args.datapath, image_path)).convert('RGB')
-                image_tensor = self.preprocess(image)
-
-#               plt.figure()
-#               plt.imshow(image_tensor.cpu().numpy().transpose((1, 2, 0)))
-#               plt.show()
-
-                image_tensor.unsqueeze_(0)
-                image_variable = Variable(image_tensor).cuda()
-                sequence.append(image_variable)
-
-                if (len(sequence) == constants.SEQUENCE_LENGTH):
-                    self.sptm.relocalize(sequence)
-
-#        self.sptm.build_graph()
-#        goal, goal_index = self.sptm.find_closest(goal_variable)
-#        source, source_index = self.sptm.find_closest(source_variable)
-#        if (source != None and goal != None):
-#            print (source_index, goal_index)
-#            path = self.sptm.find_shortest_path(source_index, goal_index)
-#            print (path)
-
-    def train_navigation(self, datapath, checkpoint_path, train_iterations):
-        self.navigation.train(datapath, checkpoint_path, train_iterations)
-
-    def eval_navigation(self, datapath):
-        self.navigation.eval(datapath)
-
-    def train_place_recognition(self, datapath, checkpoint_path, train_iterations):
-        self.place_recognition.train(datapath, checkpoint_path, train_iterations)
-
-    def eval_place_recognition(self, datapath):
-        self.place_recognition.eval(datapath)
