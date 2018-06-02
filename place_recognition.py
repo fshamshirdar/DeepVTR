@@ -93,7 +93,7 @@ class PlaceRecognition:
                     # zero the parameter gradients
                     optimizer.zero_grad()
 
-                    # dist_a, dist_b, embedded_x, embedded_y, embedded_z = self.tripletnet(anchor, positive, negative) eucludian dist
+                    # dist_a, dist_b, embedded_x, embedded_y, embedded_z = self.tripletnet(anchor, positive, negative) # eucludian dist
                     ## 1 means, dist_a should be larger than dist_b
                     # target = torch.FloatTensor(dist_a.size()).fill_(-1)
 
