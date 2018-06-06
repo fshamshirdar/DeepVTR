@@ -18,17 +18,38 @@ from tripletnet import TripletNet
 from dataset import RecordedAirSimDataLoader
 import constants
 
+class Replicate(nn.Module):
+    def __init__(self):
+        super(Replicate, self).__init__()
+
+    def forward(self, x):
+       return x
+
 class PlaceRecognition:
     def __init__(self):
-        self.model = PlaceNet()
+        # self.model = PlaceNet()
+
+        self.model = models.resnet18()
+        self.model.fc = Replicate()
+
         self.tripletnet = TripletNet(self.model)
         self.normalize = transforms.Normalize(
             #mean=[121.50361069 / 127., 122.37611083 / 127., 121.25987563 / 127.],
-            mean=[127. / 255., 127. / 255., 127. / 255.],
-            std=[1 / 255., 1 / 255., 1 / 255.]
+            # mean=[127. / 255., 127. / 255., 127. / 255.],
+            # std=[1 / 255., 1 / 255., 1 / 255.]
+            mean = [0.5, 0.5, 0.5],
+            std = [0.5, 0.5, 0.5]
         )
 
         self.preprocess = transforms.Compose([
+            transforms.Resize(constants.TRAINING_PLACE_IMAGE_SCALE),
+            transforms.CenterCrop(constants.PLACE_IMAGE_SIZE),
+            transforms.ToTensor(),
+            self.normalize
+        ])
+
+        self.array_preprocess = transforms.Compose([
+            transforms.ToPILImage(),
             transforms.Resize(constants.TRAINING_PLACE_IMAGE_SCALE),
             transforms.CenterCrop(constants.PLACE_IMAGE_SIZE),
             transforms.ToTensor(),
@@ -43,7 +64,10 @@ class PlaceRecognition:
         self.model.cuda()
 
     def forward(self, input):
-        image_tensor = self.preprocess(input)
+        if (isinstance(input, (np.ndarray, np.generic))):
+            image_tensor = self.array_preprocess(input)
+        else:
+            image_tensor = self.preprocess(input)
         image_tensor.unsqueeze_(0)
         use_gpu = torch.cuda.is_available()
         if use_gpu:
@@ -62,7 +86,7 @@ class PlaceRecognition:
         optimizer = optim.SGD(list(filter(lambda p: p.requires_grad, self.tripletnet.parameters())), lr=constants.TRAINING_PLACE_LR, momentum=constants.TRAINING_PLACE_MOMENTUM)
         exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=constants.TRAINING_PLACE_LR_SCHEDULER_SIZE, gamma=constants.TRAINING_PLACE_LR_SCHEDULER_GAMMA)
  
-        kwargs = {'num_workers': 1, 'pin_memory': True} if torch.cuda.is_available() else {}
+        kwargs = {'num_workers': 8, 'pin_memory': True} if torch.cuda.is_available() else {}
         train_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader(datapath, locomotion=False, transform=self.preprocess), batch_size=constants.TRAINING_PLACE_BATCH, shuffle=True, **kwargs)
         val_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader(datapath, locomotion=False, transform=self.preprocess, validation=True), batch_size=constants.TRAINING_PLACE_BATCH, shuffle=True, **kwargs)
         data_loaders = { 'train': train_loader, 'val': val_loader }
@@ -158,7 +182,7 @@ class PlaceRecognition:
 
     def eval(self, datapath):
         use_gpu = torch.cuda.is_available()
-        kwargs = {'num_workers': 1, 'pin_memory': True} if torch.cuda.is_available() else {}
+        kwargs = {'num_workers': 8, 'pin_memory': True} if torch.cuda.is_available() else {}
         data_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader(datapath, locomotion=False, transform=self.preprocess, validation=True), batch_size=constants.TRAINING_PLACE_BATCH, shuffle=True, **kwargs)
         criterion = torch.nn.MarginRankingLoss(margin=constants.TRAINING_PLACE_MARGIN)
 

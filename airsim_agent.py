@@ -1,3 +1,8 @@
+import time
+import random
+import numpy as np
+from collections import deque
+import torch
 import gym
 import gym_airsim
 
@@ -6,48 +11,72 @@ from AirSimClient import AirSimClientBase # needed for write_png
 import constants
 
 class AirSimAgent(Agent):
-    def __init__(self):
-        super(AirSimAgent, self).__init__()
+    def __init__(self, placeRecognition=None, navigation=None):
+        super(AirSimAgent, self).__init__(placeRecognition, navigation)
         self.env = gym.make('AirSim-v1')
         self.env.reset()
         self.goal = None
 
     def random_walk(self):
         action = random.randint(0, constants.LOCO_NUM_CLASSES-1)
+        action = 0
         next_state, _, done, _ = self.env.step(action)
         return next_state, action, done
 
     def teach(self):
         state = self.env.reset()
         for i in range(constants.AIRSIM_AGENT_TEACH_LEN):
-            next_state, action, done = random_walk()
-            self.sptm.append_keyframe(state, action, done)
+            next_state, action, done = self.random_walk()
+            print ("index %d action %d" % (i, action))
+            rep, _ = self.sptm.append_keyframe(state, action, done)
+            self.goal = state
             state = next_state
             if done:
                 break 
-        self.goal = state
  
     def repeat(self):
-        if (self.goal == None):
-            return
-
         self.sptm.build_graph()
         goal, goal_index, similarity = self.sptm.find_closest(self.goal)
+        if (goal_index < 0):
+            print ("cannot find goal")
+            return
+
         sequence = deque(maxlen=constants.SEQUENCE_LENGTH)
 
         current_state = self.env.reset()
         previous_state = current_state
-        sequence.append(state)
+        sequence.append(current_state)
         while (True):
-            matched_index = self.sptm.relocalize(sequence)
+            matched_index, similarity_score = self.sptm.relocalize(sequence)
             path = self.sptm.find_shortest_path(matched_index, goal_index)
-            print (path)
-            future_state = path[1].state
-            action = self.navigation.forward(previous_state, current_state, future_state).data.cpu()
+            print (matched_index, similarity_score, path)
+            if (len(path) < 2): # achieved the goal
+                break
+            future_state = self.sptm.memory[path[1]].state
+
+            from PIL import Image
+            current_image = Image.fromarray(current_state)
+            future_image = Image.fromarray(future_state)
+            current_image.save("current.png", "PNG")
+            future_image.save("future.png", "PNG")
+            actions = self.navigation.forward(previous_state, current_state, future_state)
+            print (actions)
+            prob, pred = torch.max(actions.data, 1)
+            action = pred.data.cpu().item()
+            print ("action %d" % action)
             next_state, _, done, _ = self.env.step(action)
+            previous_state = current_state
+            current_state = next_state
+            sequence.append(current_state)
 
     def run(self):
+        init_position, init_orientation = [10, 0, -6], [0, 0, 0]
+        self.env.set_initial_pose(init_position, init_orientation)
+        time.sleep(1)
         print ("Running teaching phase")
         self.teach()
+        init_position, init_orientation = [10, 1, -8], [0, 0, 0.5]
+        self.env.set_initial_pose(init_position, init_orientation)
+        time.sleep(1)
         print ("Running repeating phase")
         self.repeat()

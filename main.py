@@ -10,6 +10,7 @@ import torch
 
 from data_collector import DataCollector
 from agent import Agent
+from airsim_agent import AirSimAgent
 from place_recognition import PlaceRecognition
 from navigation import Navigation
 import constants
@@ -72,7 +73,7 @@ if __name__ == "__main__":
     elif args.mode == 'eval_nav':
         navigation.eval(args.datapath)
     elif args.mode == 'airsim_agent':
-        airSimAgent = AirSimAgent(place_recognition, navigtion)
+        airSimAgent = AirSimAgent(placeRecognition, navigation)
         airSimAgent.run()
     else:
         pass

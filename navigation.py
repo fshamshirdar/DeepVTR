@@ -9,6 +9,7 @@ from torchvision import models
 from loconet import LocoNet
 from sklearn.metrics import accuracy_score
 
+import numpy as np
 import os
 import time
 from tqdm import tqdm
@@ -35,6 +36,14 @@ class Navigation:
             self.normalize
         ])
 
+        self.array_preprocess = transforms.Compose([
+            transforms.ToPILImage(),
+            transforms.Resize(constants.TRAINING_LOCO_IMAGE_SCALE),
+            transforms.CenterCrop(constants.LOCO_IMAGE_SIZE),
+            transforms.ToTensor(),
+            self.normalize
+        ])
+
     def load_weights(self, checkpoint_path):
         checkpoint = torch.load(checkpoint_path)
         self.model.load_state_dict(checkpoint['state_dict'])
@@ -43,10 +52,17 @@ class Navigation:
         self.model.cuda()
 
     def forward(self, previous_state, current_state, future_state):
-        previous_tensor = self.preprocess(previous_state)
-        current_tensor = self.preprocess(current_state)
-        future_tensor = self.preprocess(future_state)
-        packed_tensor = np.concatenate([previous_state, current_state, future_state], axis=0)
+        if (isinstance(current_state, (np.ndarray, np.generic))):
+            previous_tensor = self.array_preprocess(previous_state)
+            current_tensor = self.array_preprocess(current_state)
+            future_tensor = self.array_preprocess(future_state)
+        else:
+            previous_tensor = self.preprocess(previous_state)
+            current_tensor = self.preprocess(current_state)
+            future_tensor = self.preprocess(future_state)
+
+        packed_array = np.concatenate([previous_tensor, current_tensor, future_tensor], axis=0)
+        packed_tensor = torch.from_numpy(packed_array)
         packed_tensor.unsqueeze_(0)
         use_gpu = torch.cuda.is_available()
         if use_gpu:
@@ -60,7 +76,7 @@ class Navigation:
         optimizer = optim.SGD(list(filter(lambda p: p.requires_grad, self.model.parameters())), lr=constants.TRAINING_LOCO_LR, momentum=constants.TRAINING_LOCO_MOMENTUM)
         exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=constants.TRAINING_LOCO_LR_SCHEDULER_SIZE, gamma=constants.TRAINING_LOCO_LR_SCHEDULER_GAMMA)
  
-        kwargs = {'num_workers': 1, 'pin_memory': True} if torch.cuda.is_available() else {}
+        kwargs = {'num_workers': 8, 'pin_memory': True} if torch.cuda.is_available() else {}
         train_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader(datapath, locomotion=True, transform=self.preprocess), batch_size=constants.TRAINING_LOCO_BATCH, shuffle=True, **kwargs)
         val_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader(datapath, locomotion=True, transform=self.preprocess, validation=True), batch_size=constants.TRAINING_LOCO_BATCH, shuffle=True, **kwargs)
         data_loaders = { 'train': train_loader, 'val': val_loader }
@@ -170,4 +186,4 @@ class Navigation:
             running_corrects += torch.sum(preds == labels.data)
 
         epoch_acc = (float(running_corrects) / float(len(data_loader.dataset))) * 100.0
-        print("Accuracy_score {} ".format(accuracy_score(original, predicted)))
+        print("Accuracy {} ".format(epoch_acc))

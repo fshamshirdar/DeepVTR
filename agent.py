@@ -13,7 +13,6 @@ import constants
 import os
 from PIL import Image
 import numpy as np
-from collections import deque
 
 class Agent:
     def __init__(self, placeRecognition=None, navigation=None):

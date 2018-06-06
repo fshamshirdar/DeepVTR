@@ -17,7 +17,7 @@ class SPTM:
     def append_keyframe(self, input, action=None, terminal=False):
         rep = self.placeRecognition.forward(input)
         self.memory.append(Keyframe(state=input, rep=rep.data.cpu(), action=0, terminal=terminal)) # temporary for cpu()
-        return True
+        return rep, True
 
     def len(self):
         return len(self.memory);
@@ -76,22 +76,24 @@ class SPTM:
                 similarity_array.append(self.placeRecognition.compute_similarity_score(self.memory[index].rep, sequence_reps[sequence_index]))
             similarity_matrix.append(similarity_array)
 
+        print (similarity_matrix)
+
         max_similarity_score = 0
         best_velocity = 0
         matched_index = -1
-        for index in range(memory_size-1):
+        for index in range(memory_size):
             for sequence_velocity in constants.SEQUENCE_VELOCITIES:
                 similarity_score = 0
                 for sequence_index in range(0, sequence_size):
                     calculated_index = max(int(index - (sequence_velocity * sequence_index)), 0)
-                    similarity_score += similarity_matrix[calculated_index][sequence_index]
+                    similarity_score += similarity_matrix[calculated_index][sequence_size - sequence_index - 1]
                 similarity_score /= sequence_size
                 if (similarity_score > max_similarity_score):
                     matched_index = index
                     max_similarity_score = similarity_score
                     best_velocity = sequence_velocity
 
-        return matched_index
+        return matched_index, max_similarity_score
 
     def particle_filter_localization(self, sequence):
         return -1

@@ -87,4 +87,9 @@ class AirSimEnv(gym.Env):
         self.client.set_height(height)
 
     def set_initial_pose(self, pose, orientation):
-        self.client.set_initial_pose(pose, orientation)
+        self.client.set_pose(pose, orientation)
+
+    def get_position_orientation(self):
+        pos = self.client.getPosition()
+        orientation = self.client.getOrientation()
+        return pos, orientation

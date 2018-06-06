@@ -23,7 +23,8 @@ class CVAirSimClient(MultirotorClient):
 
     def take_action(self, action):
         if action == 0:
-            speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
+            # speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
+            speed = constants.DATA_COLLECTION_MAX_SPEED
 
             vx = math.cos(self.orientation[2]) * speed
             vy = math.sin(self.orientation[2]) * speed
@@ -31,10 +32,14 @@ class CVAirSimClient(MultirotorClient):
             self.pose[0] += vx
             self.pose[1] += vy
         elif action == 1:
-            angle = random.uniform(constants.DATA_COLLECTION_MIN_ANGLE, constants.DATA_COLLECTION_MAX_ANGLE)
+            # angle = random.uniform(constants.DATA_COLLECTION_MIN_ANGLE, constants.DATA_COLLECTION_MAX_ANGLE)
+            angle = (constants.DATA_COLLECTION_MAX_ANGLE + constants.DATA_COLLECTION_MIN_ANGLE) / 2.
+            # angle = constants.DATA_COLLECTION_MIN_ANGLE
             self.orientation[2] += angle
         elif action == 2:
-            angle = random.uniform(constants.DATA_COLLECTION_MIN_ANGLE, constants.DATA_COLLECTION_MAX_ANGLE)
+            # angle = random.uniform(constants.DATA_COLLECTION_MIN_ANGLE, constants.DATA_COLLECTION_MAX_ANGLE)
+            angle = (constants.DATA_COLLECTION_MAX_ANGLE + constants.DATA_COLLECTION_MIN_ANGLE) / 2.
+            # angle = constants.DATA_COLLECTION_MIN_ANGLE
             self.orientation[2] -= angle 
         else:
             print ("wrong action: %d" % action)
@@ -51,18 +56,40 @@ class CVAirSimClient(MultirotorClient):
         response = responses[0]
         img1d = np.fromstring(response.image_data_uint8, dtype=np.uint8) 
         image = img1d.reshape(response.height, response.width, 4)  
+        image = image[:, :, :3]
 
         factor = 0.5
         maxIntensity = 255.0 # depends on dtype of image data
 
         # Decrease intensity such that dark pixels become much darker, bright pixels become slightly dark 
-        newImage1 = (maxIntensity)*(image/maxIntensity)**factor
-        newImage1 = array(newImage1, dtype=uint8)
+        image = (maxIntensity)*(image/maxIntensity)**factor
+        image = array(image, dtype=uint8)
 
-        # cv2.imshow("Test", newImage1)
+        # from PIL import Image
+        # image = Image.fromarray(image)
+        # image.show()
+        # image.save("img1.png","PNG")
+
+        return image
+
+    def getImageOld(self):
+        responses = self.simGetImages([ImageRequest(0, AirSimImageType.Scene, False, False)])
+        response = responses[0]
+        img1d = np.fromstring(response.image_data_uint8, dtype=np.uint8) 
+        image = img1d.reshape(response.height, response.width, 4)  
+
+        factor = 0.5
+        maxIntensity = 255.0 # depends on dtype of image data
+
+        # Decrease intensity such that dark pixels become much darker, bright pixels become slightly dark 
+        image = (maxIntensity)*(image/maxIntensity)**factor
+        image = array(image, dtype=uint8)
+
+        # cv2.imshow("Test", image)
         # cv2.waitKey(30)
 
-        image = np.flipud(newImage1)
+        image = np.flipud(image)
+
         return image
 
     def getScreenDepthVis(self, track):

@@ -36,7 +36,9 @@ class DataCollector:
             if (done == True):
                 break
 
-            AirSimClientBase.write_png(os.path.join(self.base_path, str(index), str(i)+".png"), current_state)
+            # AirSimClientBase.write_png(os.path.join(self.base_path, str(index), str(i)+".png"), current_state)
+            image = Image.fromarray(current_state)
+            image.save(os.path.join(self.base_path, str(index), str(i)+".png"), "PNG")
             actionFile.write("%d\n" % action)
 
             current_state = future_state
