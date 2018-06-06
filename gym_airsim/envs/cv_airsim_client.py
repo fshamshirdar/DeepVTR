@@ -22,6 +22,16 @@ class CVAirSimClient(MultirotorClient):
         self.update_pose()
 
     def take_action(self, action):
+        if action == -1: # backward
+            # speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
+            speed = constants.DATA_COLLECTION_MAX_SPEED
+
+            vx = math.cos(self.orientation[2]) * speed
+            vy = math.sin(self.orientation[2]) * speed
+ 
+            self.pose[0] -= vx
+            self.pose[1] -= vy
+
         if action == 0:
             # speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
             speed = constants.DATA_COLLECTION_MAX_SPEED

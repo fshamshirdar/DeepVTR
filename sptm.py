@@ -64,7 +64,7 @@ class SPTM:
         else:
             return None, -1, 0.0
 
-    def relocalize(self, sequence):
+    def relocalize(self, sequence, backward=False):
         sequence_reps = [ self.placeRecognition.forward(frame).data.cpu() for frame in sequence ]
         memory_size = len(self.memory)
         sequence_size = len(sequence)
@@ -85,7 +85,7 @@ class SPTM:
             for sequence_velocity in constants.SEQUENCE_VELOCITIES:
                 similarity_score = 0
                 for sequence_index in range(0, sequence_size):
-                    calculated_index = max(int(index - (sequence_velocity * sequence_index)), 0)
+                    calculated_index = min(int(index + (sequence_velocity * sequence_index)), memory_size-1)
                     similarity_score += similarity_matrix[calculated_index][sequence_size - sequence_index - 1]
                 similarity_score /= sequence_size
                 if (similarity_score > max_similarity_score):
