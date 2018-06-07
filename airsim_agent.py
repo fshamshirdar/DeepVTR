@@ -80,8 +80,7 @@ class AirSimAgent(Agent):
 
         sequence = deque(maxlen=constants.SEQUENCE_LENGTH)
 
-        current_state = self.env.reset()
-        previous_state = current_state
+        future_state = self.env.reset()
         sequence.append(current_state)
         while (True):
             matched_index, similarity_score = self.sptm.relocalize(sequence, backward=True)
@@ -89,7 +88,8 @@ class AirSimAgent(Agent):
             print (matched_index, similarity_score, path)
             if (len(path) < 2): # achieved the goal
                 break
-            future_state = self.sptm.memory[path[1]].state
+            current_state = self.sptm.memory[path[1]].state
+            previous_state = self.sptm.memory[path[2]].state
 
             from PIL import Image
             current_image = Image.fromarray(current_state)
@@ -112,6 +112,11 @@ class AirSimAgent(Agent):
         time.sleep(1)
         print ("Running teaching phase")
         self.teach()
+
+        print ("Running repeating backward phase")
+        time.sleep(1)
+        self.repeat_backward()
+
         init_position, init_orientation = [10, 1, -8], [0, 0, 0.5]
         self.env.set_initial_pose(init_position, init_orientation)
         time.sleep(1)
