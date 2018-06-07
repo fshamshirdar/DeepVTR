@@ -23,20 +23,7 @@ class CVAirSimClient(MultirotorClient):
         self.update_pose()
 
     def take_action(self, action):
-        if action == -1: # backward
-            if (self.mode == constants.AIRSIM_MODE_DATA_COLLECTION):
-                speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
-            elif (self.mode == constants.AIRSIM_MODE_TEACH):
-                speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
-            elif (self.mode == constants.AIRSIM_MODE_REPEAT):
-                speed = constants.DATA_COLLECTION_MIN_SPEED
-
-            vx = math.cos(self.orientation[2]) * speed
-            vy = math.sin(self.orientation[2]) * speed
- 
-            self.pose[0] -= vx
-            self.pose[1] -= vy
-        elif action == 0:
+        if action == 0:
             if (self.mode == constants.AIRSIM_MODE_DATA_COLLECTION):
                 speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
             elif (self.mode == constants.AIRSIM_MODE_TEACH):
@@ -69,6 +56,45 @@ class CVAirSimClient(MultirotorClient):
                 angle = constants.DATA_COLLECTION_MIN_ANGLE
 
             self.orientation[2] -= angle 
+        elif action == 3: # backward
+            if (self.mode == constants.AIRSIM_MODE_DATA_COLLECTION):
+                speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
+            elif (self.mode == constants.AIRSIM_MODE_TEACH):
+                speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
+            elif (self.mode == constants.AIRSIM_MODE_REPEAT):
+                speed = constants.DATA_COLLECTION_MIN_SPEED
+
+            vx = math.cos(self.orientation[2]) * speed
+            vy = math.sin(self.orientation[2]) * speed
+ 
+            self.pose[0] -= vx
+            self.pose[1] -= vy
+        elif action == 4: # right
+            if (self.mode == constants.AIRSIM_MODE_DATA_COLLECTION):
+                speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
+            elif (self.mode == constants.AIRSIM_MODE_TEACH):
+                speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
+            elif (self.mode == constants.AIRSIM_MODE_REPEAT):
+                speed = constants.DATA_COLLECTION_MIN_SPEED
+
+            vx = math.sin(self.orientation[2]) * speed
+            vy = math.cos(self.orientation[2]) * speed
+ 
+            self.pose[0] -= vx
+            self.pose[1] += vy
+        elif action == 5: # left
+            if (self.mode == constants.AIRSIM_MODE_DATA_COLLECTION):
+                speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
+            elif (self.mode == constants.AIRSIM_MODE_TEACH):
+                speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
+            elif (self.mode == constants.AIRSIM_MODE_REPEAT):
+                speed = constants.DATA_COLLECTION_MIN_SPEED
+
+            vx = math.sin(self.orientation[2]) * speed
+            vy = math.cos(self.orientation[2]) * speed
+ 
+            self.pose[0] += vx
+            self.pose[1] -= vy
         else:
             print ("wrong action: %d" % action)
 
@@ -87,7 +113,6 @@ class CVAirSimClient(MultirotorClient):
         response = responses[0]
         img1d = np.fromstring(response.image_data_uint8, dtype=np.uint8) 
         image = img1d.reshape(response.height, response.width, 4)  
-        image = image[:, :, :3]
 
         factor = 0.5
         maxIntensity = 255.0 # depends on dtype of image data
@@ -95,6 +120,11 @@ class CVAirSimClient(MultirotorClient):
         # Decrease intensity such that dark pixels become much darker, bright pixels become slightly dark 
         image = (maxIntensity)*(image/maxIntensity)**factor
         image = array(image, dtype=uint8)
+
+        if (self.mode == constants.AIRSIM_MODE_DATA_COLLECTION):
+            image = np.flipud(image)
+        else:
+            image = image[:, :, :3]
 
         # from PIL import Image
         # image = Image.fromarray(image)
