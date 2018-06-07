@@ -27,10 +27,10 @@ class AirSimAgent(Agent):
             next_state, _, done, _ = self.env.step(action)
             print ("random walk: index %d action %d" % (i, action))
             rep, _ = self.sptm.append_keyframe(state, action, done)
-            state = next_state
             self.goal = state
+            state = next_state
             if done:
-                return state
+                break
 
     def commanded_walk(self):
         action_file = open(self.teachCommandsFile)
@@ -76,20 +76,22 @@ class AirSimAgent(Agent):
             if (len(path) < 2): # achieved the goal
                 break
 
-            self.path_lookahead(previous_state, current_state, path)
-
-            future_state = self.sptm.memory[path[1]].state
+            if (constants.ACTION_LOOKAHEAD_ENABLED):
+                action, prob, future_state = self.path_lookahead(previous_state, current_state, path)
+            else:
+                future_state = self.sptm.memory[path[1]].state
+                actions = self.navigation.forward(previous_state, current_state, future_state)
+                print (actions)
+                prob, pred = torch.max(actions.data, 1)
+                prob = prob.data.cpu().item()
+                action = pred.data.cpu().item()
+                print ("action %d" % action)
 
             from PIL import Image
             current_image = Image.fromarray(current_state)
             future_image = Image.fromarray(future_state)
             current_image.save("current.png", "PNG")
             future_image.save("future.png", "PNG")
-            actions = self.navigation.forward(previous_state, current_state, future_state)
-            print (actions)
-            prob, pred = torch.max(actions.data, 1)
-            action = pred.data.cpu().item()
-            print ("action %d" % action)
             next_state, _, done, _ = self.env.step(action)
             previous_state = current_state
             current_state = next_state
@@ -98,6 +100,7 @@ class AirSimAgent(Agent):
                 break
 
     def path_lookahead(self, previous_state, current_state, path):
+        selected_action, selected_prob, selected_future_state = None, None, None
         for i in range(1, len(path)):
             future_state = self.sptm.memory[path[i]].state
             actions = self.navigation.forward(previous_state, current_state, future_state)
@@ -105,6 +108,14 @@ class AirSimAgent(Agent):
             prob = prob.data.cpu().item()
             action = pred.data.cpu().item()
             print (action, prob)
+
+            if selected_action == None:
+                selected_action, selected_prob, selected_future_state = action, prob, future_state
+            if (prob < constants.ACTION_LOOKAHEAD_PROB_THRESHOLD):
+                break
+            selected_action, selected_prob, selected_future_state = action, prob, future_state
+
+        return selected_action, selected_prob, selected_future_state
 
     def repeat_backward(self):
         self.sptm.build_graph()
