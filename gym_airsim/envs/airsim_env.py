@@ -24,6 +24,7 @@ class AirSimEnv(gym.Env):
         self.observation_space = spaces.Box(low=0, high=255, shape=(30, 100, 1))
         self.state = np.zeros((30, 100, 1), dtype=np.uint8) 
         self.action_space = spaces.Discrete(3)
+        self.mode = constants.AIRSIM_MODE_DATA_COLLECTION
         self._seed()
 
         # self.client = myAirSimClient()
@@ -57,6 +58,10 @@ class AirSimEnv(gym.Env):
 
     def _render(self, mode='human', close=False):
         return
+
+    def set_mode(self, mode):
+        self.mode = mode
+        self.client.set_mode(mode)
 
     def random_initial_pose(self):
         height = random.uniform(constants.DATA_COLLECTION_MIN_HEIGHT, constants.DATA_COLLECTION_MAX_HEIGHT)

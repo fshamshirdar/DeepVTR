@@ -51,6 +51,7 @@ class DataCollector:
         return states, actions
 
     def collect(self, index):
+        self.env.set_mode(constants.AIRSIM_MODE_DATA_COLLECTION)
         for i in range(index, index+constants.DATA_COLLECTION_ROUNDS):
             self.env.random_initial_pose()
             _, actions = self.play_round(i)

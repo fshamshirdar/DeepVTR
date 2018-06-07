@@ -27,18 +27,20 @@ class Replicate(nn.Module):
 
 class PlaceRecognition:
     def __init__(self):
-        # self.model = PlaceNet()
+        self.model = PlaceNet()
 
-        self.model = models.resnet18()
-        self.model.fc = Replicate()
+        # self.model = models.resnet18()
+        # self.model.fc = Replicate()
 
         self.tripletnet = TripletNet(self.model)
         self.normalize = transforms.Normalize(
             #mean=[121.50361069 / 127., 122.37611083 / 127., 121.25987563 / 127.],
-            # mean=[127. / 255., 127. / 255., 127. / 255.],
-            # std=[1 / 255., 1 / 255., 1 / 255.]
-            mean = [0.5, 0.5, 0.5],
-            std = [0.5, 0.5, 0.5]
+
+            mean=[127. / 255., 127. / 255., 127. / 255.],
+            std=[1 / 255., 1 / 255., 1 / 255.]
+
+            # mean = [0.5, 0.5, 0.5],
+            # std = [0.5, 0.5, 0.5]
         )
 
         self.preprocess = transforms.Compose([
@@ -201,6 +203,7 @@ class PlaceRecognition:
             # target = torch.FloatTensor(dist_a.size()).fill_(-1)
 
             similarity_a, similarity_b, embedded_x, embedded_y, embedded_z = self.tripletnet(anchor, positive, negative)
+            print (similarity_a - similarity_b)
             # 1 means, similarity_a should be larger than similarity_b
             target = torch.FloatTensor(similarity_a.size()).fill_(1)
             if use_gpu:

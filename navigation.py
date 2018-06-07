@@ -68,7 +68,8 @@ class Navigation:
         if use_gpu:
             packed_tensor = packed_tensor.cuda()
         packed_variable = Variable(packed_tensor)
-        return self.model(packed_variable)
+        output = self.model(packed_variable)
+        return F.softmax(output)
 
     def train(self, datapath, checkpoint_path, train_iterations):
         use_gpu = torch.cuda.is_available()

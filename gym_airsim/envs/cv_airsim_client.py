@@ -17,24 +17,32 @@ class CVAirSimClient(MultirotorClient):
 #        AirSimClientBase.wait_key('Press any key to set camera-0 gimble to 15-degree pitch')
 #        self.setCameraOrientation(0, AirSimClientBase.toQuaternion(0, 0, 0)); #radians
 
+        self.mode = constants.AIRSIM_MODE_DATA_COLLECTION
         self.pose = [0, 0, -6]
         self.orientation = [0, 0, 0]
         self.update_pose()
 
     def take_action(self, action):
         if action == -1: # backward
-            # speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
-            speed = constants.DATA_COLLECTION_MAX_SPEED
+            if (self.mode == constants.AIRSIM_MODE_DATA_COLLECTION):
+                speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
+            elif (self.mode == constants.AIRSIM_MODE_TEACH):
+                speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
+            elif (self.mode == constants.AIRSIM_MODE_REPEAT):
+                speed = constants.DATA_COLLECTION_MIN_SPEED
 
             vx = math.cos(self.orientation[2]) * speed
             vy = math.sin(self.orientation[2]) * speed
  
             self.pose[0] -= vx
             self.pose[1] -= vy
-
-        if action == 0:
-            # speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
-            speed = constants.DATA_COLLECTION_MAX_SPEED
+        elif action == 0:
+            if (self.mode == constants.AIRSIM_MODE_DATA_COLLECTION):
+                speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
+            elif (self.mode == constants.AIRSIM_MODE_TEACH):
+                speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
+            elif (self.mode == constants.AIRSIM_MODE_REPEAT):
+                speed = constants.DATA_COLLECTION_MIN_SPEED
 
             vx = math.cos(self.orientation[2]) * speed
             vy = math.sin(self.orientation[2]) * speed
@@ -42,14 +50,24 @@ class CVAirSimClient(MultirotorClient):
             self.pose[0] += vx
             self.pose[1] += vy
         elif action == 1:
-            # angle = random.uniform(constants.DATA_COLLECTION_MIN_ANGLE, constants.DATA_COLLECTION_MAX_ANGLE)
-            angle = (constants.DATA_COLLECTION_MAX_ANGLE + constants.DATA_COLLECTION_MIN_ANGLE) / 2.
-            # angle = constants.DATA_COLLECTION_MIN_ANGLE
+            if (self.mode == constants.AIRSIM_MODE_DATA_COLLECTION):
+                angle = random.uniform(constants.DATA_COLLECTION_MIN_ANGLE, constants.DATA_COLLECTION_MAX_ANGLE)
+            elif (self.mode == constants.AIRSIM_MODE_TEACH):
+                angle = random.uniform(constants.DATA_COLLECTION_MIN_ANGLE, constants.DATA_COLLECTION_MAX_ANGLE)
+            elif (self.mode == constants.AIRSIM_MODE_REPEAT):
+                # angle = (constants.DATA_COLLECTION_MAX_ANGLE + constants.DATA_COLLECTION_MIN_ANGLE) / 2.
+                angle = constants.DATA_COLLECTION_MIN_ANGLE
+
             self.orientation[2] += angle
         elif action == 2:
-            # angle = random.uniform(constants.DATA_COLLECTION_MIN_ANGLE, constants.DATA_COLLECTION_MAX_ANGLE)
-            angle = (constants.DATA_COLLECTION_MAX_ANGLE + constants.DATA_COLLECTION_MIN_ANGLE) / 2.
-            # angle = constants.DATA_COLLECTION_MIN_ANGLE
+            if (self.mode == constants.AIRSIM_MODE_DATA_COLLECTION):
+                angle = random.uniform(constants.DATA_COLLECTION_MIN_ANGLE, constants.DATA_COLLECTION_MAX_ANGLE)
+            elif (self.mode == constants.AIRSIM_MODE_TEACH):
+                angle = random.uniform(constants.DATA_COLLECTION_MIN_ANGLE, constants.DATA_COLLECTION_MAX_ANGLE)
+            elif (self.mode == constants.AIRSIM_MODE_REPEAT):
+                # angle = (constants.DATA_COLLECTION_MAX_ANGLE + constants.DATA_COLLECTION_MIN_ANGLE) / 2.
+                angle = constants.DATA_COLLECTION_MIN_ANGLE
+
             self.orientation[2] -= angle 
         else:
             print ("wrong action: %d" % action)
@@ -60,6 +78,9 @@ class CVAirSimClient(MultirotorClient):
         # collision = self.getCollisionInfo()
         # return collision.has_collided
         return False
+
+    def set_mode(self, mode):
+        self.mode = mode
 
     def getImage(self):
         responses = self.simGetImages([ImageRequest(0, AirSimImageType.Scene, False, False)])

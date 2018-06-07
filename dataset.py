@@ -80,12 +80,21 @@ class RecordedAirSimDataLoader(torch.utils.data.Dataset):
         positive_index = index + positive_addition_index
         if positive_index >= len(self.actions[round_index]):
             positive_index = index + 1
-        negative_index = random.randint(1, self.size-1)
-        negative_round_index, negative_index = self.getIndex(negative_index)
+        # negative_index = random.randint(1, self.size-1)
+        negative_index_ahead = index + random.randint(constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MIN_INDEX, constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MAX_INDEX)
+        negative_index_behind = index - random.randint(constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MIN_INDEX, constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MAX_INDEX)
+        if negative_index_ahead >= len(self.actions[round_index]):
+            negative_index = negative_index_behind
+        elif negative_index_behind < 0:
+            negative_index = negative_index_ahead
+        elif random.random() < 0.5:
+            negative_index = negative_index_behind
+        else:
+            negative_index = negative_index_ahead
 
         anchor = self.loader(os.path.join(self.base_path, self.indexes[round_index], str(index)+".png"))
         positive = self.loader(os.path.join(self.base_path, self.indexes[round_index], str(positive_index)+".png"))
-        negative = self.loader(os.path.join(self.base_path, self.indexes[negative_round_index], str(negative_index)+".png"))
+        negative = self.loader(os.path.join(self.base_path, self.indexes[round_index], str(negative_index)+".png"))
         if self.transform is not None:
             anchor = self.transform(anchor)
             positive = self.transform(positive)

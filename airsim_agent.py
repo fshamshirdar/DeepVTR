@@ -11,32 +11,53 @@ from AirSimClient import AirSimClientBase # needed for write_png
 import constants
 
 class AirSimAgent(Agent):
-    def __init__(self, placeRecognition=None, navigation=None):
+    def __init__(self, placeRecognition=None, navigation=None, teachCommandsFile=None):
         super(AirSimAgent, self).__init__(placeRecognition, navigation)
         self.env = gym.make('AirSim-v1')
         self.env.reset()
         self.goal = None
         self.init = None
+        self.teachCommandsFile = teachCommandsFile
 
     def random_walk(self):
-        action = random.randint(0, constants.LOCO_NUM_CLASSES-1)
-        action = 0
-        next_state, _, done, _ = self.env.step(action)
-        return next_state, action, done
-
-    def teach(self):
         state = self.env.reset()
         self.init = state
         for i in range(constants.AIRSIM_AGENT_TEACH_LEN):
-            next_state, action, done = self.random_walk()
-            print ("index %d action %d" % (i, action))
+            action = random.randint(0, constants.LOCO_NUM_CLASSES-1)
+            next_state, _, done, _ = self.env.step(action)
+            print ("random walk: index %d action %d" % (i, action))
             rep, _ = self.sptm.append_keyframe(state, action, done)
-            self.goal = state
             state = next_state
+            self.goal = state
             if done:
-                break 
+                return state
 
-     def repeat(self):
+    def commanded_walk(self):
+        action_file = open(self.teachCommandsFile)
+        if action_file == None:
+            return None
+
+        state = self.env.reset()
+        self.init = state
+        i = 0
+        actions = [int(val) for val in action_file.read().split('\n') if val.isdigit()]
+        for action in actions:
+            next_state, _, done, _ = self.env.step(action)
+            print ("commanded walk: index %d action %d" % (i, action))
+            rep, _ = self.sptm.append_keyframe(state, action, done)
+            state = next_state
+            self.goal = state
+            i = i+1
+            if done:
+                break
+
+    def teach(self):
+        if (self.teachCommandsFile == None):
+            self.random_walk()
+        else:
+            self.commanded_walk()
+        
+    def repeat(self):
         self.sptm.build_graph()
         goal, goal_index, similarity = self.sptm.find_closest(self.goal)
         if (goal_index < 0):
@@ -54,6 +75,9 @@ class AirSimAgent(Agent):
             print (matched_index, similarity_score, path)
             if (len(path) < 2): # achieved the goal
                 break
+
+            self.path_lookahead(previous_state, current_state, path)
+
             future_state = self.sptm.memory[path[1]].state
 
             from PIL import Image
@@ -70,6 +94,17 @@ class AirSimAgent(Agent):
             previous_state = current_state
             current_state = next_state
             sequence.append(current_state)
+            if (done):
+                break
+
+    def path_lookahead(self, previous_state, current_state, path):
+        for i in range(1, len(path)):
+            future_state = self.sptm.memory[path[i]].state
+            actions = self.navigation.forward(previous_state, current_state, future_state)
+            prob, pred = torch.max(actions.data, 1)
+            prob = prob.data.cpu().item()
+            action = pred.data.cpu().item()
+            print (action, prob)
 
     def repeat_backward(self):
         self.sptm.build_graph()
@@ -81,7 +116,7 @@ class AirSimAgent(Agent):
         sequence = deque(maxlen=constants.SEQUENCE_LENGTH)
 
         future_state = self.env.reset()
-        sequence.append(current_state)
+        sequence.append(future_state)
         while (True):
             matched_index, similarity_score = self.sptm.relocalize(sequence, backward=True)
             path = self.sptm.find_shortest_path(matched_index, goal_index)
@@ -89,7 +124,10 @@ class AirSimAgent(Agent):
             if (len(path) < 2): # achieved the goal
                 break
             current_state = self.sptm.memory[path[1]].state
-            previous_state = self.sptm.memory[path[2]].state
+            if (len(path) > 2):
+                previous_state = self.sptm.memory[path[2]].state
+            else:
+                previous_state = current_state
 
             from PIL import Image
             current_image = Image.fromarray(current_state)
@@ -100,25 +138,35 @@ class AirSimAgent(Agent):
             print (actions)
             prob, pred = torch.max(actions.data, 1)
             action = pred.data.cpu().item()
+            if (action == 0):
+                action = -1
+            elif (action == 1):
+                action = 2
+            elif (action == 2):
+                action = 1
             print ("action %d" % action)
             next_state, _, done, _ = self.env.step(action)
-            previous_state = current_state
-            current_state = next_state
-            sequence.append(current_state)
+            future_state = next_state
+            sequence.append(future_state)
+            if (done):
+                break
 
     def run(self):
         init_position, init_orientation = [10, 0, -6], [0, 0, 0]
         self.env.set_initial_pose(init_position, init_orientation)
+        self.env.set_mode(constants.AIRSIM_MODE_TEACH)
         time.sleep(1)
         print ("Running teaching phase")
         self.teach()
 
-        print ("Running repeating backward phase")
-        time.sleep(1)
-        self.repeat_backward()
+        # print ("Running repeating backward phase")
+        # self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
+        # time.sleep(1)
+        # self.repeat_backward()
 
-        init_position, init_orientation = [10, 1, -8], [0, 0, 0.5]
+        init_position, init_orientation = [10, 0, -6], [0, 0, 0]
         self.env.set_initial_pose(init_position, init_orientation)
+        self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
         time.sleep(1)
         print ("Running repeating phase")
         self.repeat()

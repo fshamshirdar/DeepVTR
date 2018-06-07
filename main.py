@@ -45,6 +45,7 @@ if __name__ == "__main__":
     parser.add_argument('--seed', default=-1, type=int, help='')
     parser.add_argument('--place_checkpoint', type=str, help='Place Checkpoint path')
     parser.add_argument('--navigation_checkpoint', type=str, help='Navigation Checkpoint path')
+    parser.add_argument('--teach_dump', type=str, help='Teach dump commands file')
 
     args = parser.parse_args()
 
@@ -73,7 +74,7 @@ if __name__ == "__main__":
     elif args.mode == 'eval_nav':
         navigation.eval(args.datapath)
     elif args.mode == 'airsim_agent':
-        airSimAgent = AirSimAgent(placeRecognition, navigation)
+        airSimAgent = AirSimAgent(placeRecognition, navigation, teachCommandsFile=args.teach_dump)
         airSimAgent.run()
     else:
         pass
