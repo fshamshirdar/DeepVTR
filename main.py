@@ -11,6 +11,7 @@ import torch
 from data_collector import DataCollector
 from agent import Agent
 from airsim_agent import AirSimAgent
+from bebop_agent import BebopAgent
 from place_recognition import PlaceRecognition
 from navigation import Navigation
 import constants
