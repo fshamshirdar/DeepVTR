@@ -50,6 +50,11 @@ class SPTM:
                     self.graph.add_edge(first, second)
                     self.graph.add_edge(second, first)
 
+    def add_shortcut(self, first, second, quality):
+        self.shortcuts.append((quality, first, second))
+        self.graph.add_edge(first, second)
+        self.graph.add_edge(second, first)
+
     def find_shortest_path(self, source, goal):
         shortest_path = networkx.shortest_path(self.graph, source=source, target=goal, weight='weight')
         return shortest_path

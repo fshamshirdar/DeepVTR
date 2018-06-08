@@ -101,6 +101,7 @@ class AirSimAgent(Agent):
 
     def path_lookahead(self, previous_state, current_state, path):
         selected_action, selected_prob, selected_future_state = None, None, None
+        i = 1
         for i in range(1, len(path)):
             future_state = self.sptm.memory[path[i]].state
             actions = self.navigation.forward(previous_state, current_state, future_state)
@@ -115,6 +116,8 @@ class AirSimAgent(Agent):
                 break
             selected_action, selected_prob, selected_future_state = action, prob, future_state
 
+        if (i > 8):
+            self.sptm.add_shortcut(path[0], path[i], selected_prob)
         return selected_action, selected_prob, selected_future_state
 
     def repeat_backward(self):
@@ -170,10 +173,10 @@ class AirSimAgent(Agent):
         print ("Running teaching phase")
         self.teach()
 
-        # print ("Running repeating backward phase")
-        # self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
-        # time.sleep(1)
-        # self.repeat_backward()
+        print ("Running repeating backward phase")
+        self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
+        time.sleep(1)
+        self.repeat_backward()
 
         init_position, init_orientation = [10, 0, -6], [0, 0, 0]
         self.env.set_initial_pose(init_position, init_orientation)
