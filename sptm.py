@@ -28,6 +28,11 @@ class SPTM:
     def get_graph(self):
         return self.graph
 
+    def clear(self):
+        self.memory = []
+        self.graph = networkx.Graph()
+        self.shortcuts = []
+
     def build_graph(self):
         memory_size = len(self.memory)
         self.graph = networkx.Graph()

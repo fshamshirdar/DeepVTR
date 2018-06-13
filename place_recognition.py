@@ -27,21 +27,23 @@ class Replicate(nn.Module):
 
 class PlaceRecognition:
     def __init__(self):
-        # self.model = PlaceNet()
-
-        self.model = models.resnet18()
-        self.model.fc = Replicate()
+        if (constants.PLACE_NETWORK == constants.PLACE_NETWORK_PLACENET):
+            self.model = PlaceNet()
+            self.normalize = transforms.Normalize(
+                mean=[127. / 255., 127. / 255., 127. / 255.],
+                std=[1 / 255., 1 / 255., 1 / 255.]
+            )
+        elif (constants.PLACE_NETWORK == constants.PLACE_NETWORK_RESNET18):
+            self.model = models.resnet18()
+            self.model.fc = Replicate()
+            self.normalize = transforms.Normalize(
+                mean = [0.5, 0.5, 0.5],
+                std = [0.5, 0.5, 0.5]
+            )
+        else:
+            print ("Place network is not valid!")
 
         self.tripletnet = TripletNet(self.model)
-        self.normalize = transforms.Normalize(
-            #mean=[121.50361069 / 127., 122.37611083 / 127., 121.25987563 / 127.],
-
-            # mean=[127. / 255., 127. / 255., 127. / 255.],
-            # std=[1 / 255., 1 / 255., 1 / 255.]
-
-            mean = [0.5, 0.5, 0.5],
-            std = [0.5, 0.5, 0.5]
-        )
 
         self.preprocess = transforms.Compose([
             transforms.Resize(constants.TRAINING_PLACE_IMAGE_SCALE),
