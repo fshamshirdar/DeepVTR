@@ -28,6 +28,11 @@ class SPTM:
     def get_graph(self):
         return self.graph
 
+    def clear(self):
+        self.memory = []
+        self.graph = networkx.Graph()
+        self.shortcuts = []
+
     def build_graph(self):
         memory_size = len(self.memory)
         self.graph = networkx.Graph()
@@ -49,6 +54,11 @@ class SPTM:
                     self.shortcuts.append((quality, first, second))
                     self.graph.add_edge(first, second)
                     self.graph.add_edge(second, first)
+
+    def add_shortcut(self, first, second, quality):
+        self.shortcuts.append((quality, first, second))
+        self.graph.add_edge(first, second)
+        self.graph.add_edge(second, first)
 
     def find_shortest_path(self, source, goal):
         shortest_path = networkx.shortest_path(self.graph, source=source, target=goal, weight='weight')
@@ -76,7 +86,7 @@ class SPTM:
                 similarity_array.append(self.placeRecognition.compute_similarity_score(self.memory[index].rep, sequence_reps[sequence_index]))
             similarity_matrix.append(similarity_array)
 
-        print (similarity_matrix)
+        # print (similarity_matrix)
 
         max_similarity_score = 0
         best_velocity = 0
@@ -96,7 +106,7 @@ class SPTM:
                     max_similarity_score = similarity_score
                     best_velocity = sequence_velocity
 
-        return matched_index, max_similarity_score
+        return matched_index, max_similarity_score, best_velocity
 
     def particle_filter_localization(self, sequence):
         return -1

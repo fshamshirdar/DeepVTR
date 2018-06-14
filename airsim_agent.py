@@ -70,7 +70,7 @@ class AirSimAgent(Agent):
         previous_state = current_state
         sequence.append(current_state)
         while (True):
-            matched_index, similarity_score = self.sptm.relocalize(sequence)
+            matched_index, similarity_score, best_velocity = self.sptm.relocalize(sequence)
             path = self.sptm.find_shortest_path(matched_index, goal_index)
             print (matched_index, similarity_score, path)
             if (len(path) < 2): # achieved the goal
@@ -100,7 +100,8 @@ class AirSimAgent(Agent):
                 break
 
     def path_lookahead(self, previous_state, current_state, path):
-        selected_action, selected_prob, selected_future_state = None, None, None
+        selected_action, selected_prob, selected_future_state, selected_index = None, None, None, 0
+        i = 1
         for i in range(1, len(path)):
             future_state = self.sptm.memory[path[i]].state
             actions = self.navigation.forward(previous_state, current_state, future_state)
@@ -110,11 +111,16 @@ class AirSimAgent(Agent):
             print (action, prob)
 
             if selected_action == None:
-                selected_action, selected_prob, selected_future_state = action, prob, future_state
+                selected_action, selected_prob, selected_future_state, selected_index = action, prob, future_state, i
             if (prob < constants.ACTION_LOOKAHEAD_PROB_THRESHOLD):
                 break
-            selected_action, selected_prob, selected_future_state = action, prob, future_state
 
+            if (action == 1 or action == 2):
+                selected_action, selected_prob, selected_future_state, selected_index = action, prob, future_state, i
+
+        if (selected_index >= 3):
+            for i in range(path[0], path[selected_index-3]):
+                self.sptm.add_shortcut(i, path[selected_index], selected_prob)
         return selected_action, selected_prob, selected_future_state
 
     def repeat_backward(self):
@@ -129,7 +135,7 @@ class AirSimAgent(Agent):
         future_state = self.env.reset()
         sequence.append(future_state)
         while (True):
-            matched_index, similarity_score = self.sptm.relocalize(sequence, backward=True)
+            matched_index, similarity_score, best_velocity = self.sptm.relocalize(sequence, backward=True)
             path = self.sptm.find_shortest_path(matched_index, goal_index)
             print (matched_index, similarity_score, path)
             if (len(path) < 2): # achieved the goal
@@ -170,10 +176,17 @@ class AirSimAgent(Agent):
         print ("Running teaching phase")
         self.teach()
 
-        # print ("Running repeating backward phase")
-        # self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
-        # time.sleep(1)
-        # self.repeat_backward()
+        print ("Running repeating backward phase")
+        self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
+        time.sleep(1)
+        self.repeat_backward()
+
+        init_position, init_orientation = [10, 0, -6], [0, 0, 0]
+        self.env.set_initial_pose(init_position, init_orientation)
+        self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
+        time.sleep(1)
+        print ("Running repeating phase")
+        self.repeat()
 
         init_position, init_orientation = [10, 0, -6], [0, 0, 0]
         self.env.set_initial_pose(init_position, init_orientation)

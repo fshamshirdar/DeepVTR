@@ -11,6 +11,7 @@ import torch
 from data_collector import DataCollector
 from agent import Agent
 from airsim_agent import AirSimAgent
+from bebop_agent import BebopAgent
 from place_recognition import PlaceRecognition
 from navigation import Navigation
 import constants
@@ -18,7 +19,7 @@ import constants
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='')
 
-    parser.add_argument('--mode', default='train', type=str, help='support option: airsim_collect/train_place/train_nav/eval_place/eval_nav/airsim_agent')
+    parser.add_argument('--mode', default='train', type=str, help='support option: airsim_collect/train_place/train_nav/eval_place/eval_nav/airsim_agent/bebop_agent')
     parser.add_argument('--datapath', default='dataset', type=str, help='path to dataset')
     parser.add_argument('--env', default='Pendulum-v0', type=str, help='open-ai gym environment')
     parser.add_argument('--collect_index', default=0, type=int, help='collect intial index')
@@ -76,5 +77,8 @@ if __name__ == "__main__":
     elif args.mode == 'airsim_agent':
         airSimAgent = AirSimAgent(placeRecognition, navigation, teachCommandsFile=args.teach_dump)
         airSimAgent.run()
+    elif args.mode == 'bebop_agent':
+        bebopAgent = BebopAgent(placeRecognition, navigation, teachCommandsFile=args.teach_dump)
+        bebopAgent.run()
     else:
         pass
