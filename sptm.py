@@ -86,7 +86,7 @@ class SPTM:
                 similarity_array.append(self.placeRecognition.compute_similarity_score(self.memory[index].rep, sequence_reps[sequence_index]))
             similarity_matrix.append(similarity_array)
 
-        print (similarity_matrix)
+        # print (similarity_matrix)
 
         max_similarity_score = 0
         best_velocity = 0
@@ -106,7 +106,7 @@ class SPTM:
                     max_similarity_score = similarity_score
                     best_velocity = sequence_velocity
 
-        return matched_index, max_similarity_score
+        return matched_index, max_similarity_score, best_velocity
 
     def particle_filter_localization(self, sequence):
         return -1

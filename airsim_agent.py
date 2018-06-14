@@ -70,7 +70,7 @@ class AirSimAgent(Agent):
         previous_state = current_state
         sequence.append(current_state)
         while (True):
-            matched_index, similarity_score = self.sptm.relocalize(sequence)
+            matched_index, similarity_score, best_velocity = self.sptm.relocalize(sequence)
             path = self.sptm.find_shortest_path(matched_index, goal_index)
             print (matched_index, similarity_score, path)
             if (len(path) < 2): # achieved the goal
@@ -135,7 +135,7 @@ class AirSimAgent(Agent):
         future_state = self.env.reset()
         sequence.append(future_state)
         while (True):
-            matched_index, similarity_score = self.sptm.relocalize(sequence, backward=True)
+            matched_index, similarity_score, best_velocity = self.sptm.relocalize(sequence, backward=True)
             path = self.sptm.find_shortest_path(matched_index, goal_index)
             print (matched_index, similarity_score, path)
             if (len(path) < 2): # achieved the goal

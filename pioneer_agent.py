@@ -16,10 +16,10 @@ from std_msgs.msg import Empty
 from agent import Agent
 import constants
 
-class BebopAgent(Agent):
+class PioneerAgent(Agent):
     def __init__(self, placeRecognition=None, navigation=None, teachCommandsFile=None):
-        super(BebopAgent, self).__init__(placeRecognition, navigation)
-        rospy.init_node('bebop_agent')
+        super(Pioneer, self).__init__(placeRecognition, navigation)
+        rospy.init_node('pioneer_agent')
         self.joySubscriber = rospy.Subscriber("/joy", Joy, self.joy_callback)
         self.imageSubscriber = rospy.Subscriber("/bebop/image_raw", Image, self.image_callback)
         self.commandPublisher = rospy.Publisher('/bebop/cmd_vel', Twist, queue_size=10)
@@ -85,7 +85,7 @@ class BebopAgent(Agent):
         print ("State: {}".format(constants.BEBOP_MODE_STRINGS[self.state]))
 
     def path_lookahead(self, previous_state, current_state, path):
-        selected_action, selected_prob, selected_future_state, selected_index = None, None, None, 0
+        selected_action, selected_prob, selected_future_state = None, None, None
         i = 1
         for i in range(1, len(path)):
             future_state = self.sptm.memory[path[i]].state
@@ -96,16 +96,13 @@ class BebopAgent(Agent):
             print (action, prob)
 
             if selected_action == None:
-                selected_action, selected_prob, selected_future_state, selected_index = action, prob, future_state, i
+                selected_action, selected_prob, selected_future_state = action, prob, future_state
             if (prob < constants.ACTION_LOOKAHEAD_PROB_THRESHOLD):
                 break
+            selected_action, selected_prob, selected_future_state = action, prob, future_state
 
-            if (action == 1 or action == 2):
-                selected_action, selected_prob, selected_future_state, selected_index = action, prob, future_state, i
-
-        if (selected_index >= 3):
-            for i in range(path[0], path[selected_index-3]):
-                self.sptm.add_shortcut(i, path[selected_index], selected_prob)
+        if (i > 8):
+            self.sptm.add_shortcut(path[0], path[i], selected_prob)
         return selected_action, selected_prob, selected_future_state
 
     def repeat_backward(self):
