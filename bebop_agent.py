@@ -29,7 +29,7 @@ class BebopAgent(Agent):
         self.futureMatchPublisher = rospy.Publisher('/future_match', Image, queue_size=10)
         # self.bridge = CvBridge()
 
-        self.set_state(constants.BEBOP_MODE_IDLE)
+        self.set_state(constants.ROBOT_MODE_IDLE)
         self.latest_image = None
         self.joy = None
 
@@ -44,25 +44,25 @@ class BebopAgent(Agent):
     def joy_callback(self, joy):
         self.joy = joy
         if (joy.buttons[constants.JOY_BUTTONS_TEACH_ID]): # X
-            if (self.state == constants.BEBOP_MODE_TEACH_MANUALLY):
-                self.set_state(constants.BEBOP_MODE_IDLE)
+            if (self.state == constants.ROBOT_MODE_TEACH_MANUALLY):
+                self.set_state(constants.ROBOT_MODE_IDLE)
                 self.process()
             else:
-                self.set_state(constants.BEBOP_MODE_TEACH_MANUALLY)
+                self.set_state(constants.ROBOT_MODE_TEACH_MANUALLY)
         elif (joy.buttons[constants.JOY_BUTTONS_LAND_ID]): # A
-            self.set_state(constants.BEBOP_MODE_IDLE)
+            self.set_state(constants.ROBOT_MODE_IDLE)
             self.landPublisher.publish(Empty())
             print ("Landing..")
         elif (joy.buttons[constants.JOY_BUTTONS_REPEAT_ID]): # B
-            self.set_state(constants.BEBOP_MODE_REPEAT)
+            self.set_state(constants.ROBOT_MODE_REPEAT)
         elif (joy.buttons[constants.JOY_BUTTONS_TAKEOFF_ID]): # Y
-            self.set_state(constants.BEBOP_MODE_IDLE)
+            self.set_state(constants.ROBOT_MODE_IDLE)
             print ("Taking off..")
             self.takeoffPublisher.publish(Empty())
         elif (joy.buttons[constants.JOY_BUTTONS_IDLE_ID]): # LB
-            self.set_state(constants.BEBOP_MODE_IDLE)
+            self.set_state(constants.ROBOT_MODE_IDLE)
         elif (joy.buttons[constants.JOY_BUTTONS_MANUAL_CONTROL_ID]): # RB
-            self.set_state(constants.BEBOP_MODE_IDLE)
+            self.set_state(constants.ROBOT_MODE_IDLE)
             cmd_vel = Twist()
             cmd_vel.linear.x = joy.axes[3]
             cmd_vel.linear.y = joy.axes[2]
@@ -70,7 +70,7 @@ class BebopAgent(Agent):
             cmd_vel.angular.z = joy.axes[0]
             self.commandPublisher.publish(cmd_vel)
         elif (joy.buttons[constants.JOY_BUTTONS_CLEAR_MEMORY_ID]): # LT
-            self.set_state(constants.BEBOP_MODE_IDLE)
+            self.set_state(constants.ROBOT_MODE_IDLE)
             self.sptm.clear()
             print ("Memory has been cleared.")
 
@@ -82,31 +82,7 @@ class BebopAgent(Agent):
 
     def set_state(self, state):
         self.state = state
-        print ("State: {}".format(constants.BEBOP_MODE_STRINGS[self.state]))
-
-    def path_lookahead(self, previous_state, current_state, path):
-        selected_action, selected_prob, selected_future_state, selected_index = None, None, None, 0
-        i = 1
-        for i in range(1, len(path)):
-            future_state = self.sptm.memory[path[i]].state
-            actions = self.navigation.forward(previous_state, current_state, future_state)
-            prob, pred = torch.max(actions.data, 1)
-            prob = prob.data.cpu().item()
-            action = pred.data.cpu().item()
-            print (action, prob)
-
-            if selected_action == None:
-                selected_action, selected_prob, selected_future_state, selected_index = action, prob, future_state, i
-            if (prob < constants.ACTION_LOOKAHEAD_PROB_THRESHOLD):
-                break
-
-            if (action == 1 or action == 2):
-                selected_action, selected_prob, selected_future_state, selected_index = action, prob, future_state, i
-
-        if (selected_index >= 3):
-            for i in range(path[0], path[selected_index-3]):
-                self.sptm.add_shortcut(i, path[selected_index], selected_prob)
-        return selected_action, selected_prob, selected_future_state
+        print ("State: {}".format(constants.ROBOT_MODE_STRINGS[self.state]))
 
     def repeat_backward(self):
         self.sptm.build_graph()
@@ -184,13 +160,13 @@ class BebopAgent(Agent):
 
         rate = rospy.Rate(10) # 10hz
         while not rospy.is_shutdown():
-            if (self.state == constants.BEBOP_MODE_TEACH_MANUALLY):
+            if (self.state == constants.ROBOT_MODE_TEACH_MANUALLY):
                 if (self.latest_image == None):
                     print ("waiting for an image")
                     rate.sleep()
                     continue
                 # if (teach_index > 10):
-                #     self.state = constants.BEBOP_MODE_IDLE
+                #     self.state = constants.ROBOT_MODE_IDLE
                 #     print ("teaching is done")
                 #     continue
 
@@ -208,13 +184,13 @@ class BebopAgent(Agent):
                 teach_index = teach_index+1
                 print ("Teaching manually: index %d stored in memory" % (teach_index))
 
-            elif (self.state == constants.BEBOP_MODE_TEACH):
+            elif (self.state == constants.ROBOT_MODE_TEACH):
                 if (self.latest_image == None):
                     print ("waiting for an image")
                     rate.sleep()
                     continue
                 if teach_index >= len(teach_actions):
-                    self.state = constants.BEBOP_MODE_IDLE
+                    self.state = constants.ROBOT_MODE_IDLE
                     continue
                 """
                 try:
@@ -242,7 +218,7 @@ class BebopAgent(Agent):
                 self.goal = current_state
                 teach_index = teach_index+1
 
-            elif (self.state == constants.BEBOP_MODE_REPEAT):
+            elif (self.state == constants.ROBOT_MODE_REPEAT):
                 if (self.latest_image == None):
                     print ("waiting for an image")
                     rate.sleep()
@@ -266,7 +242,7 @@ class BebopAgent(Agent):
                 print (matched_index, similarity_score, best_velocity, path)
                 if (len(path) < 2): # achieved the goal
                     print ("Goal reached")
-                    self.set_state(constants.BEBOP_MODE_IDLE)
+                    self.set_state(constants.ROBOT_MODE_IDLE)
                     continue
 
                 if (constants.ACTION_LOOKAHEAD_ENABLED):
