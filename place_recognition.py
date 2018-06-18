@@ -43,6 +43,8 @@ class PlaceRecognition:
         else:
             print ("Place network is not valid!")
 
+#        if (constants.PLACE_TOP_SIAMESE):
+#            self.topnet = SiameseNet(self.model)
         self.tripletnet = TripletNet(self.model)
 
         self.preprocess = transforms.Compose([
