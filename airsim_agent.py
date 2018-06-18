@@ -156,10 +156,10 @@ class AirSimAgent(Agent):
         print ("Running teaching phase")
         self.teach()
 
-        print ("Running repeating backward phase")
-        self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
-        time.sleep(1)
-        self.repeat_backward()
+        # print ("Running repeating backward phase")
+        # self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
+        # time.sleep(1)
+        # self.repeat_backward()
 
         init_position, init_orientation = [10, 0, -6], [0, 0, 0]
         self.env.set_initial_pose(init_position, init_orientation)
