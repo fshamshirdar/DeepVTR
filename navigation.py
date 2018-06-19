@@ -51,17 +51,17 @@ class Navigation:
     def cuda(self):
         self.model.cuda()
 
-    def forward(self, previous_state, current_state, future_state):
+    def forward(self, current_state, closest_state, future_state):
         if (isinstance(current_state, (np.ndarray, np.generic))):
-            previous_tensor = self.array_preprocess(previous_state)
             current_tensor = self.array_preprocess(current_state)
+            closest_tensor = self.array_preprocess(closest_state)
             future_tensor = self.array_preprocess(future_state)
         else:
-            previous_tensor = self.preprocess(previous_state)
             current_tensor = self.preprocess(current_state)
+            closest_tensor = self.preprocess(closest_state)
             future_tensor = self.preprocess(future_state)
 
-        packed_array = np.concatenate([previous_tensor, current_tensor, future_tensor], axis=0)
+        packed_array = np.concatenate([current_tensor, closest_tensor, future_tensor], axis=0)
         packed_tensor = torch.from_numpy(packed_array)
         packed_tensor.unsqueeze_(0)
         use_gpu = torch.cuda.is_available()
@@ -70,6 +70,39 @@ class Navigation:
         packed_variable = Variable(packed_tensor)
         output = self.model(packed_variable)
         return F.softmax(output)
+
+    def train_dqn(self, env, checkpoint_path, number_episodes):
+        use_gpu = torch.cuda.is_available()
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.SGD(list(filter(lambda p: p.requires_grad, self.model.parameters())), lr=constants.TRAINING_LOCO_LR, momentum=constants.TRAINING_LOCO_MOMENTUM)
+        exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=constants.TRAINING_LOCO_LR_SCHEDULER_SIZE, gamma=constants.TRAINING_LOCO_LR_SCHEDULER_GAMMA)
+ 
+        since = time.time()
+
+        best_model_wts = self.model.state_dict()
+        best_acc = 0.0
+
+        self.model.train(True)  # Set model to training mode
+        for epoch in range(number_episodes):
+            print('Epoch {}/{}'.format(epoch, number_episodes - 1))
+            print('-' * 10)
+
+            env.teach(constants.DQN_LOCO_TEACH_LEN)
+
+            observation = None
+            # exp_lr_scheduler.step()
+            done = False
+            while done == False:
+                
+
+
+        time_elapsed = time.time() - since
+        print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
+        print('Best val Acc: {:4f}'.format(best_acc))
+
+        # load best model weights
+        self.model.load_state_dict(best_model_wts)
+        return self.model
 
     def train(self, datapath, checkpoint_path, train_iterations):
         use_gpu = torch.cuda.is_available()

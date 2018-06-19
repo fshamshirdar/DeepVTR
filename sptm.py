@@ -5,7 +5,7 @@ from collections import namedtuple
 
 from place_recognition import PlaceRecognition
 
-Keyframe = namedtuple('Keyframe', 'state, rep, action, terminal')
+Keyframe = namedtuple('Keyframe', 'state, rep, action, terminal, position')
 
 class SPTM:
     def __init__(self, placeRecognition):
@@ -14,9 +14,9 @@ class SPTM:
         self.placeRecognition = placeRecognition
         self.shortcuts = []
 
-    def append_keyframe(self, input, action=None, terminal=False):
+    def append_keyframe(self, input, action=None, terminal=False, position=None):
         rep = self.placeRecognition.forward(input)
-        self.memory.append(Keyframe(state=input, rep=rep.data.cpu(), action=0, terminal=terminal)) # temporary for cpu()
+        self.memory.append(Keyframe(state=input, rep=rep.data.cpu(), action=0, terminal=terminal, position=position)) # temporary for cpu()
         return rep, True
 
     def len(self):

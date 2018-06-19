@@ -40,7 +40,7 @@ class AirSimEnv(gym.Env):
         collided = self.client.take_action(action)
         position = self.client.getPosition()
         
-        info = {"x_pos" : position.x_val, "y_pos" : position.y_val}
+        info = {"x_pos" : position.x_val, "y_pos" : position.y_val, "z_pos": position.z_val}
         self.state = self.client.getImage()
         reward = 0
         done = collided
