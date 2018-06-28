@@ -28,6 +28,7 @@ class CVAirSimClient(MultirotorClient):
                 speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
             elif (self.mode == constants.AIRSIM_MODE_TEACH):
                 speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
+                # speed = constants.DATA_COLLECTION_MIN_SPEED
             elif (self.mode == constants.AIRSIM_MODE_REPEAT):
                 speed = constants.DATA_COLLECTION_MIN_SPEED
 
@@ -41,6 +42,7 @@ class CVAirSimClient(MultirotorClient):
                 speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
             elif (self.mode == constants.AIRSIM_MODE_TEACH):
                 speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
+                # speed = constants.DATA_COLLECTION_MIN_SPEED
             elif (self.mode == constants.AIRSIM_MODE_REPEAT):
                 speed = constants.DATA_COLLECTION_MIN_SPEED
 
@@ -54,6 +56,7 @@ class CVAirSimClient(MultirotorClient):
                 angle = random.uniform(constants.DATA_COLLECTION_MIN_ANGLE, constants.DATA_COLLECTION_MAX_ANGLE)
             elif (self.mode == constants.AIRSIM_MODE_TEACH):
                 angle = random.uniform(constants.DATA_COLLECTION_MIN_ANGLE, constants.DATA_COLLECTION_MAX_ANGLE)
+                # angle = constants.DATA_COLLECTION_MIN_ANGLE
             elif (self.mode == constants.AIRSIM_MODE_REPEAT):
                 # angle = (constants.DATA_COLLECTION_MAX_ANGLE + constants.DATA_COLLECTION_MIN_ANGLE) / 2.
                 angle = constants.DATA_COLLECTION_MIN_ANGLE
@@ -64,6 +67,7 @@ class CVAirSimClient(MultirotorClient):
                 angle = random.uniform(constants.DATA_COLLECTION_MIN_ANGLE, constants.DATA_COLLECTION_MAX_ANGLE)
             elif (self.mode == constants.AIRSIM_MODE_TEACH):
                 angle = random.uniform(constants.DATA_COLLECTION_MIN_ANGLE, constants.DATA_COLLECTION_MAX_ANGLE)
+                # angle = constants.DATA_COLLECTION_MIN_ANGLE
             elif (self.mode == constants.AIRSIM_MODE_REPEAT):
                 # angle = (constants.DATA_COLLECTION_MAX_ANGLE + constants.DATA_COLLECTION_MIN_ANGLE) / 2.
                 angle = constants.DATA_COLLECTION_MIN_ANGLE

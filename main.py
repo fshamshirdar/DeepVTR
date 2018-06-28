@@ -10,9 +10,10 @@ import torch
 
 from data_collector import DataCollector
 from agent import Agent
+from dqn_agent import DQNAgent
 from airsim_agent import AirSimAgent
-from bebop_agent import BebopAgent
-from pioneer_agent import PioneerAgent
+# from bebop_agent import BebopAgent
+# from pioneer_agent import PioneerAgent
 from place_recognition import PlaceRecognition
 from navigation import Navigation
 import constants
@@ -20,7 +21,7 @@ import constants
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='')
 
-    parser.add_argument('--mode', default='train', type=str, help='support option: airsim_collect/train_place/train_nav/eval_place/eval_nav/airsim_agent/bebop_agent/pioneer_agent')
+    parser.add_argument('--mode', default='train', type=str, help='support option: airsim_collect/train_place/train_nav/eval_place/eval_nav/dqn_agent/airsim_agent/bebop_agent/pioneer_agent')
     parser.add_argument('--datapath', default='dataset', type=str, help='path to dataset')
     parser.add_argument('--env', default='Pendulum-v0', type=str, help='open-ai gym environment')
     parser.add_argument('--collect_index', default=0, type=int, help='collect intial index')
@@ -75,6 +76,9 @@ if __name__ == "__main__":
         navigation.train(args.datapath, args.checkpoint_path, args.train_iter)
     elif args.mode == 'eval_nav':
         navigation.eval(args.datapath)
+    elif args.mode == 'dqn_agent':
+        dqnAgent = DQNAgent(placeRecognition, navigation)
+        dqnAgent.run()
     elif args.mode == 'airsim_agent':
         airSimAgent = AirSimAgent(placeRecognition, navigation, teachCommandsFile=args.teach_dump)
         airSimAgent.run()

@@ -71,6 +71,7 @@ class Navigation:
         output = self.model(packed_variable)
         return F.softmax(output)
 
+    """
     def train_dqn(self, env, checkpoint_path, number_episodes):
         use_gpu = torch.cuda.is_available()
         criterion = nn.CrossEntropyLoss()
@@ -94,8 +95,6 @@ class Navigation:
             done = False
             while done == False:
                 
-
-
         time_elapsed = time.time() - since
         print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
         print('Best val Acc: {:4f}'.format(best_acc))
@@ -103,6 +102,7 @@ class Navigation:
         # load best model weights
         self.model.load_state_dict(best_model_wts)
         return self.model
+    """
 
     def train(self, datapath, checkpoint_path, train_iterations):
         use_gpu = torch.cuda.is_available()

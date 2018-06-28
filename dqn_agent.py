@@ -1,4 +1,5 @@
 import time
+import math
 import random
 import numpy as np
 from collections import deque
@@ -12,7 +13,7 @@ import constants
 
 class DQNAgent(Agent):
     def __init__(self, placeRecognition=None, navigation=None):
-        super(AirSimAgent, self).__init__(placeRecognition, navigation)
+        super(DQNAgent, self).__init__(placeRecognition, navigation)
         self.env = gym.make('AirSim-v1')
         self.env.reset()
         self.goal = None
@@ -26,6 +27,7 @@ class DQNAgent(Agent):
         self.init = state
         for i in range(constants.DQN_LOCO_TEACH_LEN):
             action = random.randint(0, constants.LOCO_NUM_CLASSES-1)
+            action = 0
             next_state, _, done, info = self.env.step(action)
             position = (info['x_pos'], info['y_pos'], info['z_pos'])
             rep, _ = self.sptm.append_keyframe(state, action, done, position=position)
@@ -76,16 +78,17 @@ class DQNAgent(Agent):
             next_state, _, done, info = self.env.step(action)
             position = (info['x_pos'], info['y_pos'], info['z_pos'])
             reward = (constants.DQN_REWARD_DISTANCE_OFFSET - self.compute_reward(position))
+            print ("reward {}".format(reward))
             previous_state = current_state
             current_state = next_state
             sequence.append(current_state)
             if (done):
                 return
 
-    def compute_reward(self, current_position)
+    def compute_reward(self, current_position):
         if (len(self.path) < 1):
             return 0
-        distances = [self.calculated_distance(current_position, position) for position in self.path]
+        distances = [self.calculate_distance(current_position, position) for position in self.path]
         distances.sort()
         return distances[0]
 
@@ -104,18 +107,6 @@ class DQNAgent(Agent):
         time.sleep(1)
         print ("Running teaching phase")
         self.teach()
-
-        print ("Running repeating backward phase")
-        self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
-        time.sleep(1)
-        self.repeat_backward()
-
-        init_position, init_orientation = [10, 0, -6], [0, 0, 0]
-        self.env.set_initial_pose(init_position, init_orientation)
-        self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
-        time.sleep(1)
-        print ("Running repeating phase")
-        self.repeat()
 
         init_position, init_orientation = [10, 0, -6], [0, 0, 0]
         self.env.set_initial_pose(init_position, init_orientation)
