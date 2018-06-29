@@ -77,7 +77,7 @@ class DQNAgent(Agent):
             # future_image.save("future.png", "PNG")
             next_state, _, done, info = self.env.step(action)
             position = (info['x_pos'], info['y_pos'], info['z_pos'])
-            reward = (constants.DQN_REWARD_DISTANCE_OFFSET - self.compute_reward(position))
+            reward = (constants.DQN_REWARD_DISTANCE_OFFSET - self.compute_reward(position, path))
             print ("reward {}".format(reward))
             previous_state = current_state
             current_state = next_state
@@ -85,12 +85,14 @@ class DQNAgent(Agent):
             if (done):
                 return
 
-    def compute_reward(self, current_position):
+    def compute_reward(self, current_position, current_path):
         if (len(self.path) < 1):
             return 0
-        distances = [self.calculate_distance(current_position, position) for position in self.path]
-        distances.sort()
-        return distances[0]
+        # distances = [self.calculate_distance(current_position, position) for position in self.path]
+        # distances.sort()
+        # return distances[0]
+
+        return self.calculate_distance(current_position, self.sptm.memory[current_path[1]].position)
 
     def calculate_distance(self, start_coordinates, current_coordinates):
         distance = math.sqrt((start_coordinates[0] - current_coordinates[0]) ** 2 +
