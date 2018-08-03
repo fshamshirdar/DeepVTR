@@ -77,7 +77,7 @@ if __name__ == "__main__":
     elif args.mode == 'eval_nav':
         navigation.eval(args.datapath)
     elif args.mode == 'dqn_agent':
-        dqnAgent = DQNAgent(placeRecognition, navigation)
+        dqnAgent = DQNAgent(placeRecognition, navigation, args.checkpoint_path, args.train_iter)
         dqnAgent.run()
     elif args.mode == 'airsim_agent':
         airSimAgent = AirSimAgent(placeRecognition, navigation, teachCommandsFile=args.teach_dump)

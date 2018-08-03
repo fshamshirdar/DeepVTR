@@ -23,6 +23,9 @@ class Navigation:
         self.model = models.resnet18(**kwargs)  # (num_classes=constants.LOCO_NUM_CLASSES)
         self.model.conv1 = nn.Conv2d(9, 64, kernel_size=7, stride=2, padding=3, bias=False) # to accept 9 channels instead
 
+        self.target_model = models.resnet18(**kwargs)  # (num_classes=constants.LOCO_NUM_CLASSES)
+        self.target_model.conv1 = nn.Conv2d(9, 64, kernel_size=7, stride=2, padding=3, bias=False) # to accept 9 channels instead
+
         self.normalize = transforms.Normalize(
             #mean=[121.50361069 / 127., 122.37611083 / 127., 121.25987563 / 127.],
             mean = [0.5, 0.5, 0.5],
@@ -36,7 +39,7 @@ class Navigation:
             self.normalize
         ])
 
-        self.array_preprocess = transforms.Compose([
+        self.np_preprocess = transforms.Compose([
             transforms.ToPILImage(),
             transforms.Resize(constants.TRAINING_LOCO_IMAGE_SCALE),
             transforms.CenterCrop(constants.LOCO_IMAGE_SIZE),
@@ -50,12 +53,13 @@ class Navigation:
 
     def cuda(self):
         self.model.cuda()
+        self.target_model.cuda()
 
     def forward(self, current_state, closest_state, future_state):
         if (isinstance(current_state, (np.ndarray, np.generic))):
-            current_tensor = self.array_preprocess(current_state)
-            closest_tensor = self.array_preprocess(closest_state)
-            future_tensor = self.array_preprocess(future_state)
+            current_tensor = self.np_preprocess(current_state)
+            closest_tensor = self.np_preprocess(closest_state)
+            future_tensor = self.np_preprocess(future_state)
         else:
             current_tensor = self.preprocess(current_state)
             closest_tensor = self.preprocess(closest_state)
