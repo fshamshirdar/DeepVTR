@@ -41,6 +41,7 @@ class DQNAgent(Agent):
     def random_walk(self):
         state = self.env.reset()
         self.init = state
+        previous_action = -1
         for i in range(constants.DQN_LOCO_TEACH_LEN):
             action = random.randint(0, constants.LOCO_NUM_CLASSES-1)
             next_state, _, done, info = self.env.step(action)
@@ -49,6 +50,27 @@ class DQNAgent(Agent):
             self.path.append(position)
             self.goal = state
             state = next_state
+            if done:
+                break
+
+    def random_consistent_walk(self):
+        state = self.env.reset()
+        self.init = state
+        previous_action = -1
+        for i in range(constants.DQN_LOCO_TEACH_LEN):
+            actions = [i for i in range(0, constants.LOCO_NUM_CLASSES)]
+            if (previous_action == 1):
+                actions.remove(2)
+            else if (previous_action == 2):
+                actions.remove(1)
+            action = random.choice(actions)
+            next_state, _, done, info = self.env.step(action)
+            position = (info['x_pos'], info['y_pos'], info['z_pos'], info['yaw'])
+            rep, _ = self.sptm.append_keyframe(state, action, done, position=position)
+            self.path.append(position)
+            self.goal = state
+            state = next_state
+            previous_action = action
             if done:
                 break
 
