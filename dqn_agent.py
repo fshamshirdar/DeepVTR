@@ -148,8 +148,13 @@ class DQNAgent(Agent):
         current_angle = self.calculate_angle(current_position, self.sptm.memory[current_path[1]].position)
         previous_angle = self.calculate_angle(previous_position, self.sptm.memory[current_path[1]].position)
 
-        print ("current angle: {}, previous angle: {}".format(current_angle, previous_angle))
-        reward = (math.fabs(previous_angle) - math.fabs(current_angle)) / (constants.DATA_COLLECTION_MAX_ANGLE) * 10.
+        current_distance = self.calculate_distance(current_position, self.sptm.memory[current_path[1]].position)
+        previous_distance = self.calculate_distance(previous_position, self.sptm.memory[current_path[1]].position)
+
+        print ("current angle: {} - previous angle: {} || current distance: {} - previous distance: {}".format(current_angle, previous_angle, current_distance, previous_distance))
+        angle_reward = (math.fabs(previous_angle) - math.fabs(current_angle)) / (constants.AIRSIM_YAW_SPEED)
+        distance_reward = (previous_distance - current_distance) / (constants.AIRSIM_STRAIGHT_SPEED)
+        reward = (distance_reward * constants.DQN_DISTANCE_REWARD_WEIGHT + angle_reward * constants.DQN_ANGLE_REWARD_WEIGHT) / (constants.DQN_DISTANCE_REWARD_WEIGHT + constants.DQN_ANGLE_REWARD_WEIGHT)
         return (reward)
 
     def calculate_angle(self, start_coordinates, current_coordinates):
