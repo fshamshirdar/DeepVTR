@@ -314,3 +314,6 @@ class DQNAgent(Agent):
             if (self.step > constants.DQN_LEARNING_OFFSET_START and
                 self.step % constants.DQN_LEARNING_FREQ == 0):
                 self.update_policy()
+
+            if (self.step % constants.DQN_CHECKPOINT_FREQ == 0):
+                self.navigation.save_model(self.checkpoint_path, self.step) 
