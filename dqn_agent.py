@@ -61,9 +61,10 @@ class DQNAgent(Agent):
             actions = [i for i in range(0, constants.LOCO_NUM_CLASSES)]
             if (previous_action == 1):
                 actions.remove(2)
-            else if (previous_action == 2):
+            elif (previous_action == 2):
                 actions.remove(1)
             action = random.choice(actions)
+            print (actions, action)
             next_state, _, done, info = self.env.step(action)
             position = (info['x_pos'], info['y_pos'], info['z_pos'], info['yaw'])
             rep, _ = self.sptm.append_keyframe(state, action, done, position=position)
@@ -91,7 +92,8 @@ class DQNAgent(Agent):
         return action
 
     def teach(self):
-        self.random_walk()
+        # self.random_walk()
+        self.random_consistent_walk()
         
     def repeat(self):
         self.sptm.build_graph(with_shortcuts=False)
@@ -129,11 +131,12 @@ class DQNAgent(Agent):
 
             next_state, _, done, info = self.env.step(action)
             next_position = (info['x_pos'], info['y_pos'], info['z_pos'], info['yaw'])
+            print ("positions: ", position, next_position, self.sptm.memory[path[1]].position)
             reward = self.compute_reward(position, next_position, path)
-            print ("reward {}".format(reward))
+            print ("---> reward {}".format(reward))
             self.memory.append((current_state, closest_state, future_state), action, reward, False)
-            previous_state = current_state
-            current_state = next_state
+            previous_state = current_state.copy()
+            current_state = next_state.copy()
             position = next_position
             sequence.append(current_state)
             if (done):
@@ -173,9 +176,11 @@ class DQNAgent(Agent):
         current_distance = self.calculate_distance(current_position, self.sptm.memory[current_path[1]].position)
         previous_distance = self.calculate_distance(previous_position, self.sptm.memory[current_path[1]].position)
 
-        print ("current angle: {} - previous angle: {} || current distance: {} - previous distance: {}".format(current_angle, previous_angle, current_distance, previous_distance))
         angle_reward = (math.fabs(previous_angle) - math.fabs(current_angle)) / (constants.AIRSIM_YAW_SPEED)
+        angle_reward = np.clip(angle_reward, -1., 1.)
         distance_reward = (previous_distance - current_distance) / (constants.AIRSIM_STRAIGHT_SPEED)
+        distance_reward = np.clip(distance_reward, -1., 1.)
+        print ("current angle: {} - previous angle: {} - angle reward: {} || current distance: {} - previous distance: {} - distance reward: {}".format(current_angle, previous_angle, angle_reward, current_distance, previous_distance, distance_reward))
         reward = (distance_reward * constants.DQN_DISTANCE_REWARD_WEIGHT + angle_reward * constants.DQN_ANGLE_REWARD_WEIGHT) / (constants.DQN_DISTANCE_REWARD_WEIGHT + constants.DQN_ANGLE_REWARD_WEIGHT)
         return (reward)
 
@@ -183,11 +188,13 @@ class DQNAgent(Agent):
         # abs_angle_difference = math.fabs(start_coordinates[3] - current_coordinates[3])
         # angle = min(abs_angle_difference, 360.0 - abs_angle_difference)
 
-        angle_difference = current_coordinates[3] - start_coordinates[3]
+        angle_difference = math.fabs(current_coordinates[3] - start_coordinates[3])
         angle_difference_norm = min(angle_difference, math.pi - angle_difference)
-        position_difference = math.atan2((start_coordinates[0] - current_coordinates[0]), (start_coordinates[1] - current_coordinates[1]))
-        position_difference_norm = min(position_difference, math.pi - position_difference)
-        angle = (angle_difference_norm + position_difference_norm) / 2.
+        print ("angle diff: ", angle_difference_norm)
+        heading_angle = math.fabs(math.atan2((current_coordinates[1] - start_coordinates[1]), (current_coordinates[0] - start_coordinates[0])) - start_coordinates[3])
+        heading_angle_norm = min(heading_angle, math.pi - heading_angle)
+        print ("heading diff: ", heading_angle_norm)
+        angle = (angle_difference_norm + heading_angle_norm) / 2.
         angle_norm = min(angle, math.pi - angle)
         return angle_norm
 
@@ -267,6 +274,8 @@ class DQNAgent(Agent):
         if self.num_param_updates % constants.DQN_TARGET_UPDATE_FREQ == 0:
             self.navigation.target_model.load_state_dict(self.navigation.model.state_dict())
 
+        print ("updating policy: ", self.num_param_updates)
+
     def run(self):
         episode_steps = 0
         observation = None                                                                                
@@ -277,19 +286,26 @@ class DQNAgent(Agent):
             init_position = [random.uniform(-150.0, 150.0), random.uniform(-150.0, 150.0), -height]
             init_orientation = [0.0, 0.0, random.uniform(-math.pi, math.pi)]
 
-            # init_position, init_orientation = [10, 0, -6], [0, 0, 0]
-            self.env.set_initial_pose(init_position, init_orientation)
+            teach_position = init_position.copy()
+            teach_orientation = init_orientation.copy()
+            print (teach_position)
+
+            # repeat_position, repeat_orientation = [10, 0, -6], [0, 0, 0]
+            self.env.set_initial_pose(teach_position, teach_orientation)
             self.env.set_mode(constants.AIRSIM_MODE_TEACH)
             time.sleep(1)
             print ("Running teaching phase")
             self.teach()
 
-            # init_position, init_orientation = [10, 4, -6], [0, 0, 0]
-            init_position[0] = init_position[0] + random.uniform(-3., 3.)
-            init_position[1] = init_position[1] + random.uniform(-3., 3.)
-            init_position[2] = init_position[2] + random.uniform(-1., 1.)
-            init_orientation[2] = init_orientation[2] + random.uniform(-math.pi / 8, math.pi / 8)
-            self.env.set_initial_pose(init_position, init_orientation)
+            repeat_position = init_position.copy()
+            repeat_orientation = init_orientation.copy()
+            print (repeat_position)
+            # repeat_position, repeat_orientation = [10, 4, -6], [0, 0, 0]
+            repeat_position[0] = repeat_position[0] + random.uniform(-3., 3.)
+            repeat_position[1] = repeat_position[1] + random.uniform(-3., 3.)
+            repeat_position[2] = repeat_position[2] + random.uniform(-1., 1.)
+            repeat_orientation[2] = repeat_orientation[2] + random.uniform(-math.pi / 8, math.pi / 8)
+            self.env.set_initial_pose(repeat_position, repeat_orientation)
             self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
             time.sleep(1)
             print ("Running repeating phase")

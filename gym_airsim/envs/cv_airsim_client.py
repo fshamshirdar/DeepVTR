@@ -44,7 +44,7 @@ class CVAirSimClient(MultirotorClient):
                 speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
                 # speed = constants.DATA_COLLECTION_MIN_SPEED
             elif (self.mode == constants.AIRSIM_MODE_REPEAT):
-                speed = constants.AIRSIM_YAW_SPEED
+                speed = constants.AIRSIM_STRAIGHT_SPEED
 
             vx = math.cos(self.orientation[2]) * speed
             vy = math.sin(self.orientation[2]) * speed
@@ -69,7 +69,7 @@ class CVAirSimClient(MultirotorClient):
                 # angle = constants.DATA_COLLECTION_MIN_ANGLE
             elif (self.mode == constants.AIRSIM_MODE_REPEAT):
                 # angle = (constants.DATA_COLLECTION_MAX_ANGLE + constants.DATA_COLLECTION_MIN_ANGLE) / 2.
-                angle = constants.DATA_COLLECTION_MIN_ANGLE
+                angle = constants.AIRSIM_YAW_SPEED
 
             self.orientation[2] -= angle 
         else:
