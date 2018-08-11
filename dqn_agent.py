@@ -112,8 +112,10 @@ class DQNAgent(Agent):
         episode_step = 0
         while (True):
 #            matched_index, similarity_score, best_velocity = self.sptm.relocalize(sequence)
-            matched_index, similarity_score, best_velocity = self.sptm.ground_relocalize(position)
+#            matched_index, similarity_score, best_velocity = self.sptm.ground_relocalize(position)
+            matched_index, similarity_score, best_velocity = self.sptm.ground_lookahead_relocalize(position)
             if (similarity_score > constants.DQN_MAX_DISTANCE_THRESHOLD):
+                print ("Leaving the path, finishing episode")
                 break
 
             path = self.sptm.find_shortest_path(matched_index, goal_index)

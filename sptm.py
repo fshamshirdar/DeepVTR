@@ -114,13 +114,27 @@ class SPTM:
         memory_size = len(self.memory)
         min_distance = 10000.
         matched_index = -1
-        for index in range(memory_size):            
+        for index in range(memory_size):
             distance = math.sqrt((position[0] - self.memory[index].position[0]) ** 2 +
                                  (position[1] - self.memory[index].position[1]) ** 2 +
                                  (position[2] - self.memory[index].position[2]) ** 2)
             if (distance < min_distance):
                 min_distance = distance
                 matched_index = index
+
+        return matched_index, min_distance, 0
+
+    def ground_lookahead_relocalize(self, position):
+        memory_size = len(self.memory)
+        min_distance = 10000.
+        matched_index = -1
+        for index in reversed(range(memory_size)):
+            distance = math.sqrt((position[0] - self.memory[index].position[0]) ** 2 +
+                                 (position[1] - self.memory[index].position[1]) ** 2 +
+                                 (position[2] - self.memory[index].position[2]) ** 2)
+            if (distance < constants.DQN_MAX_DISTANCE_THRESHOLD):
+                matched_index = index
+                return matched_index, distance, 0
 
         return matched_index, min_distance, 0
 
