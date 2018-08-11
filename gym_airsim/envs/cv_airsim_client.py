@@ -72,6 +72,46 @@ class CVAirSimClient(MultirotorClient):
                 angle = constants.AIRSIM_YAW_SPEED
 
             self.orientation[2] -= angle 
+        elif action == 3: # backward
+            if (self.mode == constants.AIRSIM_MODE_DATA_COLLECTION):
+                speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
+            elif (self.mode == constants.AIRSIM_MODE_TEACH):
+                speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
+                # speed = constants.DATA_COLLECTION_MIN_SPEED
+            elif (self.mode == constants.AIRSIM_MODE_REPEAT):
+                speed = constants.AIRSIM_STRAIGHT_SPEED
+
+            vx = math.cos(self.orientation[2]) * speed
+            vy = math.sin(self.orientation[2]) * speed
+ 
+            self.pose[0] -= vx
+            self.pose[1] -= vy
+        elif action == 4: # right
+            if (self.mode == constants.AIRSIM_MODE_DATA_COLLECTION):
+                speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
+            elif (self.mode == constants.AIRSIM_MODE_TEACH):
+                speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
+            elif (self.mode == constants.AIRSIM_MODE_REPEAT):
+                speed = constants.AIRSIM_SIDE_SPEED
+
+            vx = math.sin(self.orientation[2]) * speed
+            vy = math.cos(self.orientation[2]) * speed
+ 
+            self.pose[0] -= vx
+            self.pose[1] += vy
+        elif action == 5: # left
+            if (self.mode == constants.AIRSIM_MODE_DATA_COLLECTION):
+                speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
+            elif (self.mode == constants.AIRSIM_MODE_TEACH):
+                speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
+            elif (self.mode == constants.AIRSIM_MODE_REPEAT):
+                speed = constants.AIRSIM_SIDE_SPEED
+
+            vx = math.sin(self.orientation[2]) * speed
+            vy = math.cos(self.orientation[2]) * speed
+ 
+            self.pose[0] += vx
+            self.pose[1] -= vy
         else:
             print ("wrong action: %d" % action)
 

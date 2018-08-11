@@ -63,6 +63,10 @@ class DQNAgent(Agent):
                 actions.remove(2)
             elif (previous_action == 2):
                 actions.remove(1)
+            elif (previous_action == 4):
+                actions.remove(5)
+            elif (previous_action == 5):
+                actions.remove(4)
             action = random.choice(actions)
             print (actions, action)
             next_state, _, done, info = self.env.step(action)
