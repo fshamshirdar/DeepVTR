@@ -199,7 +199,7 @@ class Navigation:
             'epoch': epoch + 1,
             'state_dict': self.model.state_dict(),
         }
-        torch.save(state, os.path.join(checkpoint_path, "nav_checkpoint_{}.pth".format(epoch)))
+        torch.save(state, os.path.join(checkpoint_path, "nav_{}_checkpoint_{}.pth".format(constants.LOCO_NUM_CLASSES, epoch)))
 
     def eval(self, datapath):
         use_gpu = torch.cuda.is_available()

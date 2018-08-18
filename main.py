@@ -11,6 +11,7 @@ import torch
 from data_collector import DataCollector
 from agent import Agent
 from dqn_agent import DQNAgent
+from dqn_agent_single import DQNAgentSingle
 from airsim_agent import AirSimAgent
 # from bebop_agent import BebopAgent
 # from pioneer_agent import PioneerAgent
@@ -21,7 +22,7 @@ import constants
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='')
 
-    parser.add_argument('--mode', default='train', type=str, help='support option: airsim_collect/train_place/train_nav/eval_place/eval_nav/dqn_agent/airsim_agent/bebop_agent/pioneer_agent')
+    parser.add_argument('--mode', default='train', type=str, help='support option: airsim_collect/train_place/train_nav/eval_place/eval_nav/dqn_agent/dqn_agent_single/airsim_agent/bebop_agent/pioneer_agent')
     parser.add_argument('--datapath', default='dataset', type=str, help='path to dataset')
     parser.add_argument('--env', default='Pendulum-v0', type=str, help='open-ai gym environment')
     parser.add_argument('--collect_index', default=0, type=int, help='collect intial index')
@@ -49,6 +50,7 @@ if __name__ == "__main__":
     parser.add_argument('--place_checkpoint', type=str, help='Place Checkpoint path')
     parser.add_argument('--navigation_checkpoint', type=str, help='Navigation Checkpoint path')
     parser.add_argument('--teach_dump', type=str, help='Teach dump commands file')
+    parser.add_argument('--dump_memory_path', type=str, help='Dump memory path')
 
     args = parser.parse_args()
 
@@ -77,8 +79,11 @@ if __name__ == "__main__":
     elif args.mode == 'eval_nav':
         navigation.eval(args.datapath)
     elif args.mode == 'dqn_agent':
-        dqnAgent = DQNAgent(placeRecognition, navigation, args.checkpoint_path, args.train_iter)
+        dqnAgent = DQNAgent(placeRecognition, navigation, args.checkpoint_path, args.train_iter, args.teach_dump)
         dqnAgent.run()
+    elif args.mode == 'dqn_agent_single':
+        dqnAgentSingle = DQNAgentSingle(placeRecognition, navigation, args.checkpoint_path, args.train_iter, args.dump_memory_path)
+        dqnAgentSingle.run()
     elif args.mode == 'airsim_agent':
         airSimAgent = AirSimAgent(placeRecognition, navigation, teachCommandsFile=args.teach_dump)
         airSimAgent.run()

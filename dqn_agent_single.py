@@ -1,6 +1,7 @@
 import time
 import math
 import random
+import pickle
 import numpy as np
 from collections import deque
 from copy import deepcopy
@@ -18,18 +19,18 @@ import utils
 
 dtype = torch.cuda.FloatTensor if torch.cuda.is_available() else torch.FloatTensor
 
-class DQNAgent(Agent):
-    def __init__(self, placeRecognition=None, navigation=None, checkpoint_path="checkpoint", train_iter=1000, teach_commands_file=None):
-        super(DQNAgent, self).__init__(placeRecognition, navigation)
+class DQNAgentSingle(Agent):
+    def __init__(self, placeRecognition=None, navigation=None, checkpoint_path="checkpoint", train_iter=1000, dump_memory_path=None):
+        super(DQNAgentSingle, self).__init__(placeRecognition, navigation)
         self.env = gym.make('AirSim-v1')
         self.env.reset()
         self.goal = None
         self.init = None
-        self.teachCommandsFile = teach_commands_file
-        self.path = []
         self.step = 0
+        self.memory_step = 0
         self.num_param_updates = 0
         self.checkpoint_path = checkpoint_path
+        self.dump_memory_path = dump_memory_path
         self.train_iter = train_iter
         self.target_navigation = deepcopy(navigation)
         self.exploration_schedule = LinearSchedule(100000, 0.1)
@@ -39,130 +40,48 @@ class DQNAgent(Agent):
 
         self.memory = SequentialMemory(limit=constants.DQN_MEMORY_SIZE, window_length=1)
 
-    def random_walk(self):
-        state = self.env.reset()
-        self.init = state
-        previous_action = -1
-        for i in range(constants.DQN_LOCO_TEACH_LEN):
-            action = random.randint(0, constants.LOCO_NUM_CLASSES-1)
-            next_state, _, done, info = self.env.step(action)
-            position = (info['x_pos'], info['y_pos'], info['z_pos'], info['yaw'])
-            rep, _ = self.sptm.append_keyframe(state, action, done, position=position)
-            self.path.append(position)
-            self.goal = state
-            state = next_state
-            if done:
-                break
-
-    def random_consistent_walk(self):
-        state = self.env.reset()
-        self.init = state
-        previous_action = -1
-        for i in range(constants.DQN_LOCO_TEACH_LEN):
-            actions = [i for i in range(0, constants.LOCO_NUM_CLASSES)]
-            if (previous_action == 1):
-                actions.remove(2)
-            elif (previous_action == 2):
-                actions.remove(1)
-            elif (previous_action == 3):
-                actions.remove(4)
-            elif (previous_action == 4):
-                actions.remove(3)
-            action = random.choice(actions)
-            print (actions, action)
-            next_state, _, done, info = self.env.step(action)
-            position = (info['x_pos'], info['y_pos'], info['z_pos'], info['yaw'])
-            rep, _ = self.sptm.append_keyframe(state, action, done, position=position)
-            self.path.append(position)
-            self.goal = state
-            state = next_state
-            previous_action = action
-            if done:
-                break
-
-    def random_consistent_walk(self):
-        state = self.env.reset()
-        self.init = state
-        previous_action = -1
-        for i in range(constants.DQN_LOCO_TEACH_LEN):
-            actions = [i for i in range(0, constants.LOCO_NUM_CLASSES)]
-            if (previous_action == 1):
-                actions.remove(2)
-            elif (previous_action == 2):
-                actions.remove(1)
-            elif (previous_action == 3):
-                actions.remove(4)
-            elif (previous_action == 4):
-                actions.remove(3)
-            action = random.choice(actions)
-            print (actions, action)
-            next_state, _, done, info = self.env.step(action)
-            position = (info['x_pos'], info['y_pos'], info['z_pos'], info['yaw'])
-            rep, _ = self.sptm.append_keyframe(state, action, done, position=position)
-            self.path.append(position)
-            self.goal = state
-            state = next_state
-            previous_action = action
-            if done:
-                break
-
-    def consistent_walk(self):
-        state = self.env.reset()
-        self.init = state
+    def random_step(self):
+        init_state = self.env.reset()
+        init_position_dict = self.env.get_position_orientation()
+        init_position = (init_position_dict['x_pos'], init_position_dict['y_pos'], init_position_dict['z_pos'], init_position_dict['yaw'])
+        self.init = {'state': init_state, 'position': init_position}
+        print ('init_position: ', init_position)
         action = random.randint(0, constants.LOCO_NUM_CLASSES-1)
-        for i in range(constants.DQN_LOCO_TEACH_NUM_CONSISTENT_ACTION):
-            print (action)
-            next_state, _, done, info = self.env.step(action)
-            position = (info['x_pos'], info['y_pos'], info['z_pos'], info['yaw'])
-            rep, _ = self.sptm.append_keyframe(state, action, done, position=position)
-            self.path.append(position)
-            self.goal = state
-            state = next_state
-            previous_action = action
-            if done:
-                break
-        action = 0
-        for i in range(constants.DQN_LOCO_TEACH_NUM_CONSISTENT_ACTION):
-            print (action)
-            next_state, _, done, info = self.env.step(action)
-            position = (info['x_pos'], info['y_pos'], info['z_pos'], info['yaw'])
-            rep, _ = self.sptm.append_keyframe(state, action, done, position=position)
-            self.path.append(position)
-            self.goal = state
-            state = next_state
-            previous_action = action
-            if done:
-                break
+        goal_state, _, done, info = self.env.step(action)
+        goal_state, _, done, info = self.env.step(action)
+        goal_position = (info['x_pos'], info['y_pos'], info['z_pos'], info['yaw'])
+        self.goal = {'state': goal_state, 'position': goal_position}
+        print ('goal_position: ', goal_position)
 
-    def commanded_walk(self):
-        action_file = open(self.teachCommandsFile)
-        if action_file == None:
-            return None
+    def random_consistent_walk(self):
+        init_state = self.env.reset()
+        init_position_dict = self.env.get_position_orientation()
+        init_position = (init_position_dict['x_pos'], init_position_dict['y_pos'], init_position_dict['z_pos'], init_position_dict['yaw'])
+        self.init = {'state': init_state, 'position': init_position}
+        print ('init_position: ', init_position)
 
-        state = self.env.reset()
-        self.init = state
-        i = 0
-        actions = [int(val) for val in action_file.read().split('\n') if val.isdigit()]
-        for action in actions:
-            print ("commanded walk: index %d action %d" % (i, action))
+        previous_action = -1
+        for i in range(constants.DQN_LOCO_TEACH_LEN):
+            actions = [i for i in range(0, constants.LOCO_NUM_CLASSES)]
+            if (previous_action == 1):
+                actions.remove(2)
+            elif (previous_action == 2):
+                actions.remove(1)
+            elif (previous_action == 3):
+                actions.remove(4)
+            elif (previous_action == 4):
+                actions.remove(3)
+            action = random.choice(actions)
+            print (actions, action)
             next_state, _, done, info = self.env.step(action)
-            position = (info['x_pos'], info['y_pos'], info['z_pos'], info['yaw'])
-            rep, _ = self.sptm.append_keyframe(state, action, done, position=position)
-            self.path.append(position)
-            self.goal = state
-            state = next_state
+            next_position = (info['x_pos'], info['y_pos'], info['z_pos'], info['yaw'])
+            self.goal = {'state': next_state, 'position': next_position}
             previous_action = action
-            i = i+1
-            if done:
-                break
+        print ('goal_position: ', self.goal['position'])
 
     def teach(self):
-        if (self.teachCommandsFile == None):
-            # self.random_walk()
-            # self.random_consistent_walk()
-            self.consistent_walk()
-        else:
-            self.commanded_walk()
+        # self.random_step()
+        self.random_consistent_walk()
 
     def select_epilson_greedy_action(self, observation):
         sample = random.random()
@@ -176,44 +95,28 @@ class DQNAgent(Agent):
 
 #            m = Categorical(actions)
 #            action = m.sample()
-            print ("network action selected")
+            print ("network action selected: ", actions)
         else:
             action = random.randint(0, constants.LOCO_NUM_CLASSES-1)
             print ("random action selected")
         return action
 
     def repeat(self):
-        self.sptm.build_graph(with_shortcuts=False)
-        goal, goal_index, similarity = self.sptm.find_closest(self.goal)
-        if (goal_index < 0):
-            print ("cannot find goal")
-            return
-
-        sequence = deque(maxlen=constants.SEQUENCE_LENGTH)
-
         current_state = self.env.reset()
-        previous_state = current_state
-        sequence.append(current_state)
         info = self.env.get_position_orientation()
         position = (info['x_pos'], info['y_pos'], info['z_pos'], info['yaw'])
         episode_step = 0
         while (True):
-            matched_index, similarity_score, best_velocity = self.sptm.relocalize(sequence)
-#            matched_index, similarity_score, best_velocity = self.sptm.ground_relocalize(position)
-#            matched_index, similarity_score, best_velocity = self.sptm.ground_lookahead_relocalize(position)
-
-            matched_distance = self.calculate_distance(position, self.sptm.memory[matched_index].position)
-            if (matched_distance > constants.DQN_MAX_DISTANCE_THRESHOLD):
+            init_distance = self.calculate_distance(position, self.init['position'])
+            if (init_distance > constants.DQN_MAX_DISTANCE_THRESHOLD):
                 print ("Leaving the path, finishing episode")
                 break
 
-            path = self.sptm.find_shortest_path(matched_index, goal_index)
-            print (matched_index, similarity_score, path)
-            if (len(path) < 2): # achieved the goal
-                return
+            goal_distance = self.calculate_distance(position, self.goal['position'])
+            print ('init distance: ', init_distance, 'goal distance: ', goal_distance)
 
-            closest_state = self.sptm.memory[matched_index].state
-            future_state = self.sptm.memory[path[1]].state
+            closest_state = self.init['state']
+            future_state = self.goal['state']
             if (self.step > constants.DQN_LEARNING_OFFSET_START):
                 action = self.select_epilson_greedy_action((current_state, closest_state, future_state))
             else:
@@ -222,58 +125,41 @@ class DQNAgent(Agent):
 
             next_state, _, done, info = self.env.step(action)
             next_position = (info['x_pos'], info['y_pos'], info['z_pos'], info['yaw'])
-            print ("positions: ", position, next_position, self.sptm.memory[path[1]].position)
-            reward = self.compute_reward(position, next_position, path)
+            print ("positions: ", position, next_position, self.goal['position'])
+            reward = self.compute_reward(position, next_position, self.goal['position'])
             print ("---> reward {}".format(reward))
             self.memory.append((current_state, closest_state, future_state), action, reward, False)
             previous_state = current_state.copy()
             current_state = next_state.copy()
             position = next_position
-            sequence.append(current_state)
-            if (done):
-                break
             self.step = self.step + 1
+            self.memory_step = self.memory_step + 1
             episode_step = episode_step + 1
-            if (episode_step > constants.DQN_LOCO_TEACH_LEN * 3):
+            if (done or episode_step > constants.DQN_LOCO_REPEAT_LEN):
                 break
 
-    def compute_reward(self, previous_position, current_position, current_path):
-        if (len(self.path) < 1):
-            return 0
-        # distances = [self.calculate_distance(current_position, position) for position in self.path]
-        # distances.sort()
-        # return distances[0]
+    def compute_reward(self, previous_position, current_position, future_position):
+        # current_angle = self.calculate_angle(current_position, future_position)
+        # previous_angle = self.calculate_angle(previous_position, future_position)
 
-        # distance = self.calculate_distance(current_position, self.sptm.memory[current_path[1]].position)
-        # reward = (constants.DQN_REWARD_DISTANCE_OFFSET - distance)
-        # return reward
-
-        # angle = self.calculate_angle(current_position, self.sptm.memory[current_path[1]].position)
-        # min_abs_angle = math.fabs(angle)
-        # min_angle = angle
-        # for i in range(1, len(current_path)):
-        #     distance = self.calculate_distance(current_position, self.sptm.memory[current_path[i]].position)
-        #     print ("distance to {}: {}".format(i, distance))
-        #     if (distance < constants.DQN_MAX_DISTANCE_THRESHOLD):
-        #         angle = self.calculate_angle(current_position, self.sptm.memory[current_path[i]].position)
-        #         if (math.fabs(angle) < min_abs_angle):
-        #             min_abs_angle = math.fabs(angle)
-        #             min_angle = angle
-
-
-        current_angle = self.calculate_angle(current_position, self.sptm.memory[current_path[1]].position)
-        previous_angle = self.calculate_angle(previous_position, self.sptm.memory[current_path[1]].position)
-
-        current_distance = self.calculate_distance(current_position, self.sptm.memory[current_path[1]].position)
-        previous_distance = self.calculate_distance(previous_position, self.sptm.memory[current_path[1]].position)
-
+        current_angle = self.calculate_yaw_angle(current_position, future_position)
+        previous_angle = self.calculate_yaw_angle(previous_position, future_position)
         angle_reward = (math.fabs(previous_angle) - math.fabs(current_angle)) / (constants.AIRSIM_YAW_SPEED)
         angle_reward = np.clip(angle_reward, -1., 1.)
+
+        current_distance = self.calculate_distance(current_position, future_position)
+        previous_distance = self.calculate_distance(previous_position, future_position)
         distance_reward = (previous_distance - current_distance) / (constants.AIRSIM_STRAIGHT_SPEED)
         distance_reward = np.clip(distance_reward, -1., 1.)
+
         print ("current angle: {} - previous angle: {} - angle reward: {} || current distance: {} - previous distance: {} - distance reward: {}".format(current_angle, previous_angle, angle_reward, current_distance, previous_distance, distance_reward))
         reward = (distance_reward * constants.DQN_DISTANCE_REWARD_WEIGHT + angle_reward * constants.DQN_ANGLE_REWARD_WEIGHT) / (constants.DQN_DISTANCE_REWARD_WEIGHT + constants.DQN_ANGLE_REWARD_WEIGHT)
         return (reward)
+
+    def calculate_yaw_angle(self, start_coordinates, current_coordinates):
+        angle_difference = math.fabs(current_coordinates[3] - start_coordinates[3])
+        angle_difference_norm = min(angle_difference, math.pi - angle_difference)
+        return angle_difference_norm
 
     def calculate_angle(self, start_coordinates, current_coordinates):
         # abs_angle_difference = math.fabs(start_coordinates[3] - current_coordinates[3])
@@ -371,8 +257,6 @@ class DQNAgent(Agent):
         episode_steps = 0
         observation = None                                                                                
         while self.step < self.train_iter:
-            self.sptm.clear()
-
             height = random.uniform(constants.DATA_COLLECTION_MIN_HEIGHT, constants.DATA_COLLECTION_MAX_HEIGHT)
             init_position = [random.uniform(-150.0, 150.0), random.uniform(-150.0, 150.0), -height]
             init_orientation = [0.0, 0.0, random.uniform(-math.pi, math.pi)]
@@ -392,8 +276,8 @@ class DQNAgent(Agent):
             repeat_orientation = init_orientation.copy()
             print (repeat_position)
             # repeat_position, repeat_orientation = [10, 4, -6], [0, 0, 0]
-            repeat_position[0] = repeat_position[0] + random.uniform(-2., 2.)
-            repeat_position[1] = repeat_position[1] + random.uniform(-2., 2.)
+            repeat_position[0] = repeat_position[0] + random.uniform(-3., 3.)
+            repeat_position[1] = repeat_position[1] + random.uniform(-3., 3.)
             repeat_position[2] = repeat_position[2] + random.uniform(-1., 1.)
             repeat_orientation[2] = repeat_orientation[2] + random.uniform(-math.pi / 8, math.pi / 8)
             self.env.set_initial_pose(repeat_position, repeat_orientation)
@@ -408,3 +292,10 @@ class DQNAgent(Agent):
 
             if (self.step % constants.DQN_CHECKPOINT_FREQ == 0):
                 self.navigation.save_model(self.checkpoint_path, self.step) 
+
+            if (self.dump_memory_path != None and self.memory_step > constants.DQN_MEMORY_SIZE):
+                print ("Dumping reply memory..")
+                to_dump = {'observations': self.memory.observations, 'actions': self.memory.actions}
+                with open('replay_memory.pkl', 'wb') as output:
+                    pickle.dump(to_dump, output, pickle.HIGHEST_PROTOCOL)
+                self.memory_step = 0
