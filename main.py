@@ -61,6 +61,8 @@ if __name__ == "__main__":
     if args.navigation_checkpoint is not None:
         navigation.load_weights(args.navigation_checkpoint)
 
+    print (str(navigation.model))
+
 #    agent = Agent(placeRecognition, navigation)
 
     if torch.cuda.is_available():

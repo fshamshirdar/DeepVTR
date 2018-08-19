@@ -117,6 +117,13 @@ class DQNAgentSingle(Agent):
 
             closest_state = self.init['state']
             future_state = self.goal['state']
+
+            from PIL import Image
+            image1 = Image.fromarray(current_state)
+            image1.show()
+            image2 = Image.fromarray(future_state)
+            image2.show()
+
             if (self.step > constants.DQN_LEARNING_OFFSET_START):
                 action = self.select_epilson_greedy_action((current_state, closest_state, future_state))
             else:
@@ -195,13 +202,15 @@ class DQNAgentSingle(Agent):
             current_state0 = self.navigation.np_preprocess(np.asarray(experience.state0[0][0]))
             closest_state0 = self.navigation.np_preprocess(np.asarray(experience.state0[0][1]))
             future_state0 = self.navigation.np_preprocess(np.asarray(experience.state0[0][2]))
-            state0 = np.concatenate([current_state0, closest_state0, future_state0], axis=0)
+            # state0 = np.concatenate([current_state0, closest_state0, future_state0], axis=0)
+            state0 = np.concatenate([current_state0, future_state0], axis=0)
             state0_batch.append(state0)
 
             current_state1 = self.navigation.np_preprocess(np.asarray(experience.state1[0][0]))
             closest_state1 = self.navigation.np_preprocess(np.asarray(experience.state1[0][1]))
             future_state1 = self.navigation.np_preprocess(np.asarray(experience.state1[0][2]))
-            state1 = np.concatenate([current_state1, closest_state1, future_state1], axis=0)
+            # state1 = np.concatenate([current_state1, closest_state1, future_state1], axis=0)
+            state1 = np.concatenate([current_state1, future_state1], axis=0)
             state1_batch.append(state1)
 
             action_batch.append(experience.action)

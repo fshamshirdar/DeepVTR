@@ -21,10 +21,10 @@ class Navigation:
     def __init__(self):
         kwargs = {'num_classes': constants.LOCO_NUM_CLASSES}
         self.model = models.resnet18(**kwargs)  # (num_classes=constants.LOCO_NUM_CLASSES)
-        self.model.conv1 = nn.Conv2d(9, 64, kernel_size=7, stride=2, padding=3, bias=False) # to accept 9 channels instead
+        self.model.conv1 = nn.Conv2d(6, 64, kernel_size=7, stride=2, padding=3, bias=False) # to accept 9 channels instead
 
         self.target_model = models.resnet18(**kwargs)  # (num_classes=constants.LOCO_NUM_CLASSES)
-        self.target_model.conv1 = nn.Conv2d(9, 64, kernel_size=7, stride=2, padding=3, bias=False) # to accept 9 channels instead
+        self.target_model.conv1 = nn.Conv2d(6, 64, kernel_size=7, stride=2, padding=3, bias=False) # to accept 9 channels instead
 
         self.normalize = transforms.Normalize(
             #mean=[121.50361069 / 127., 122.37611083 / 127., 121.25987563 / 127.],
@@ -65,7 +65,8 @@ class Navigation:
             closest_tensor = self.preprocess(closest_state)
             future_tensor = self.preprocess(future_state)
 
-        packed_array = np.concatenate([current_tensor, closest_tensor, future_tensor], axis=0)
+        # packed_array = np.concatenate([current_tensor, closest_tensor, future_tensor], axis=0)
+        packed_array = np.concatenate([closest_tensor, future_tensor], axis=0)
         packed_tensor = torch.from_numpy(packed_array)
         packed_tensor.unsqueeze_(0)
         use_gpu = torch.cuda.is_available()
