@@ -66,7 +66,7 @@ class Navigation:
             future_tensor = self.preprocess(future_state)
 
         # packed_array = np.concatenate([current_tensor, closest_tensor, future_tensor], axis=0)
-        packed_array = np.concatenate([closest_tensor, future_tensor], axis=0)
+        packed_array = np.concatenate([current_tensor, future_tensor], axis=0)
         packed_tensor = torch.from_numpy(packed_array)
         packed_tensor.unsqueeze_(0)
         use_gpu = torch.cuda.is_available()
@@ -111,6 +111,9 @@ class Navigation:
 
     def train(self, datapath, checkpoint_path, train_iterations):
         use_gpu = torch.cuda.is_available()
+        # weights = [1.0, 1.5, 1.5, 0.5, 0.5, 0.5]
+        # class_weights = torch.FloatTensor(weights).cuda()
+        # criterion = nn.CrossEntropyLoss(weight=class_weights)
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.SGD(list(filter(lambda p: p.requires_grad, self.model.parameters())), lr=constants.TRAINING_LOCO_LR, momentum=constants.TRAINING_LOCO_MOMENTUM)
         exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=constants.TRAINING_LOCO_LR_SCHEDULER_SIZE, gamma=constants.TRAINING_LOCO_LR_SCHEDULER_GAMMA)

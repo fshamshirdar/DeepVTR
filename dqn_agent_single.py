@@ -33,7 +33,7 @@ class DQNAgentSingle(Agent):
         self.dump_memory_path = dump_memory_path
         self.train_iter = train_iter
         self.target_navigation = deepcopy(navigation)
-        self.exploration_schedule = LinearSchedule(100000, 0.1)
+        self.exploration_schedule = LinearSchedule(10000, 0.1)
         self.optimizer = optim.RMSprop(list(filter(lambda p: p.requires_grad, self.navigation.model.parameters())), lr=constants.DQN_LEARNING_RATE)
 
         utils.hard_update(self.navigation.target_model, self.navigation.model)
@@ -80,14 +80,15 @@ class DQNAgentSingle(Agent):
         print ('goal_position: ', self.goal['position'])
 
     def teach(self):
-        # self.random_step()
-        self.random_consistent_walk()
+        self.random_step()
+        # self.random_consistent_walk()
 
     def select_epilson_greedy_action(self, observation):
         sample = random.random()
         eps_threshold = self.exploration_schedule.value(self.step)
         action = 0
         if sample > eps_threshold:
+            self.navigation.model.eval()
             actions = self.navigation.forward(*observation)
             prob, pred = torch.max(actions.data, 1)
             prob = prob.data.cpu().item()
@@ -118,11 +119,11 @@ class DQNAgentSingle(Agent):
             closest_state = self.init['state']
             future_state = self.goal['state']
 
-            from PIL import Image
-            image1 = Image.fromarray(current_state)
-            image1.show()
-            image2 = Image.fromarray(future_state)
-            image2.show()
+#            from PIL import Image
+#            image1 = Image.fromarray(current_state)
+#            image1.show()
+#            image2 = Image.fromarray(future_state)
+#            image2.show()
 
             if (self.step > constants.DQN_LEARNING_OFFSET_START):
                 action = self.select_epilson_greedy_action((current_state, closest_state, future_state))
@@ -191,6 +192,9 @@ class DQNAgentSingle(Agent):
         return distance
 
     def update_policy(self):
+        self.navigation.model.train()
+        self.navigation.target_model.train()
+
         state0_batch = []
         state1_batch = []
         action_batch = []

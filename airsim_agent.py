@@ -17,6 +17,8 @@ class AirSimAgent(Agent):
         self.goal = None
         self.init = None
         self.teachCommandsFile = teachCommandsFile
+        self.place_recognition.model.eval()
+        self.navigation.model.eval()
 
     def random_walk(self):
         state = self.env.reset()
@@ -44,8 +46,8 @@ class AirSimAgent(Agent):
             next_state, _, done, _ = self.env.step(action)
             print ("commanded walk: index %d action %d" % (i, action))
             rep, _ = self.sptm.append_keyframe(state, action, done)
-            state = next_state
             self.goal = state
+            state = next_state
             i = i+1
             if done:
                 break
@@ -80,12 +82,15 @@ class AirSimAgent(Agent):
                 action, prob, future_state = self.path_lookahead(previous_state, current_state, path)
             else:
                 future_state = self.sptm.memory[path[1]].state
-                actions = self.navigation.forward(previous_state, current_state, future_state)
+                # actions = self.navigation.forward(previous_state, current_state, future_state)
+                actions = self.navigation.forward(current_state, self.sptm.memory[matched_index].state, future_state)
                 actions = torch.squeeze(actions)
                 sorted_actions, indices = torch.sort(actions, descending=True)
                 print (actions, indices)
                 action = indices[0]
-                if ((previous_action == 1 and action == 2) or
+                if ((previous_action == 0 and action == 5) or
+                    (previous_action == 5 and action == 0) or
+                    (previous_action == 1 and action == 2) or
                     (previous_action == 2 and action == 1) or
                     (previous_action == 4 and action == 5) or
                     (previous_action == 5 and action == 4)):
@@ -173,14 +178,14 @@ class AirSimAgent(Agent):
         # time.sleep(1)
         # self.repeat_backward()
 
-        init_position, init_orientation = [10, 0, -6], [0, 0, 0]
+        init_position, init_orientation = [10, 3, -6], [0, 0, 0]
         self.env.set_initial_pose(init_position, init_orientation)
         self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
         time.sleep(1)
         print ("Running repeating phase")
         self.repeat()
 
-        init_position, init_orientation = [10, 0, -6], [0, 0, 0]
+        init_position, init_orientation = [10, 4, -6], [0, 0, 0]
         self.env.set_initial_pose(init_position, init_orientation)
         self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
         time.sleep(1)
