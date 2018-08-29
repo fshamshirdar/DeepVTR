@@ -62,7 +62,7 @@ class PlaceNet(nn.Module):
         self.fc8_new = nn.Linear(in_features=4096, out_features=2543)
         self.prob = nn.Softmax()
 
-    def forward(self, x):
+    def forward(self, x, flatten=True):
         x = self.conv1(x)
         x = self.relu1(x)
         x = self.pool1(x)
@@ -80,5 +80,6 @@ class PlaceNet(nn.Module):
         x = self.conv6(x)
         x = self.relu6(x)
         x = self.pool6(x)
-        x = x.view(x.size(0), 256 * 6 * 6)
+        if (flatten == True):
+            x = x.view(x.size(0), 256 * 6 * 6)
         return x

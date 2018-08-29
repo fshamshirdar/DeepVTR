@@ -26,7 +26,7 @@ class Replicate(nn.Module):
        return x
 
 class PlaceRecognition:
-    def __init__(self):
+    def __init__(self, checkpoint=None, use_cuda=True):
         if (constants.PLACE_NETWORK == constants.PLACE_NETWORK_PLACENET):
             self.model = PlaceNet()
             self.normalize = transforms.Normalize(
@@ -62,6 +62,12 @@ class PlaceRecognition:
             self.normalize
         ])
 
+        if (checkpoint is not None):
+            self.load_weights(checkpoint)
+
+        if (use_cuda):
+            self.cuda()
+
     def load_weights(self, checkpoint_path):
         checkpoint = torch.load(checkpoint_path)
         self.model.load_state_dict(checkpoint['state_dict'])
@@ -69,7 +75,7 @@ class PlaceRecognition:
     def cuda(self):
         self.model.cuda()
 
-    def forward(self, input):
+    def forward(self, input, flatten=True):
         if (isinstance(input, (np.ndarray, np.generic))):
             image_tensor = self.array_preprocess(input)
         else:
@@ -79,7 +85,7 @@ class PlaceRecognition:
         if use_gpu:
             image_tensor = image_tensor.cuda()
         image_variable = Variable(image_tensor)
-        return self.model(image_variable) # get representation
+        return self.model(image_variable, flatten) # get representation
 
     def compute_similarity_score(self, rep1, rep2):
         similarity_score = F.cosine_similarity(rep1, rep2)
