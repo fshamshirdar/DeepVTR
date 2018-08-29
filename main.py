@@ -13,6 +13,7 @@ from agent import Agent
 from dqn_agent import DQNAgent
 from dqn_agent_single import DQNAgentSingle
 from airsim_agent import AirSimAgent
+from vizdoom_agent import VizDoomAgent
 # from bebop_agent import BebopAgent
 # from pioneer_agent import PioneerAgent
 from place_recognition import PlaceRecognition
@@ -22,7 +23,7 @@ import constants
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='')
 
-    parser.add_argument('--mode', default='train', type=str, help='support option: airsim_collect/train_place/train_nav/eval_place/eval_nav/dqn_agent/dqn_agent_single/airsim_agent/bebop_agent/pioneer_agent')
+    parser.add_argument('--mode', default='train', type=str, help='support option: airsim_collect/train_place/train_nav/eval_place/eval_nav/dqn_agent/dqn_agent_single/airsim_agent/bebop_agent/pioneer_agent/vizdoom_agent')
     parser.add_argument('--datapath', default='dataset', type=str, help='path to dataset')
     parser.add_argument('--env', default='Pendulum-v0', type=str, help='open-ai gym environment')
     parser.add_argument('--collect_index', default=0, type=int, help='collect intial index')
@@ -50,6 +51,7 @@ if __name__ == "__main__":
     parser.add_argument('--place_checkpoint', type=str, help='Place Checkpoint path')
     parser.add_argument('--navigation_checkpoint', type=str, help='Navigation Checkpoint path')
     parser.add_argument('--teach_dump', type=str, help='Teach dump commands file')
+    parser.add_argument('--wad', type=str, default='vizdoom/Train/D3_battle_navigation_split.wad_manymaps_test.wad', help='WAD path')
     parser.add_argument('--dump_memory_path', type=str, help='Dump memory path')
 
     args = parser.parse_args()
@@ -60,10 +62,6 @@ if __name__ == "__main__":
         placeRecognition.load_weights(args.place_checkpoint)
     if args.navigation_checkpoint is not None:
         navigation.load_weights(args.navigation_checkpoint)
-
-    print (str(navigation.model))
-
-#    agent = Agent(placeRecognition, navigation)
 
     if torch.cuda.is_available():
         placeRecognition.cuda()
@@ -95,5 +93,8 @@ if __name__ == "__main__":
     elif args.mode == 'pioneer_agent':
         pioneerAgent = PioneerAgent(placeRecognition, navigation, teachCommandsFile=args.teach_dump)
         pioneerAgent.run()
+    elif args.mode == 'vizdoom_agent':
+        vizDoomAgent = VizDoomAgent(placeRecognition, navigation, args.wad, teachCommandsFile=args.teach_dump)
+        vizDoomAgent.run()
     else:
         pass

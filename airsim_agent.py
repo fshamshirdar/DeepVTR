@@ -178,7 +178,7 @@ class AirSimAgent(Agent):
         # time.sleep(1)
         # self.repeat_backward()
 
-        init_position, init_orientation = [10, 3, -6], [0, 0, 0]
+        init_position, init_orientation = [10, 2, -6], [0, 0, 0]
         self.env.set_initial_pose(init_position, init_orientation)
         self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
         time.sleep(1)
