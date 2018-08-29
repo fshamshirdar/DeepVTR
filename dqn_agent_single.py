@@ -48,7 +48,6 @@ class DQNAgentSingle(Agent):
         print ('init_position: ', init_position)
         action = random.randint(0, constants.LOCO_NUM_CLASSES-1)
         goal_state, _, done, info = self.env.step(action)
-        goal_state, _, done, info = self.env.step(action)
         goal_position = (info['x_pos'], info['y_pos'], info['z_pos'], info['yaw'])
         self.goal = {'state': goal_state, 'position': goal_position}
         print ('goal_position: ', goal_position)
@@ -61,7 +60,8 @@ class DQNAgentSingle(Agent):
         print ('init_position: ', init_position)
 
         previous_action = -1
-        for i in range(constants.DQN_LOCO_TEACH_LEN):
+        teach_len = random.randint(1, constants.DQN_LOCO_TEACH_LEN)
+        for i in range(teach_len):
             actions = [i for i in range(0, constants.LOCO_NUM_CLASSES)]
             if (previous_action == 1):
                 actions.remove(2)
@@ -80,8 +80,8 @@ class DQNAgentSingle(Agent):
         print ('goal_position: ', self.goal['position'])
 
     def teach(self):
-        self.random_step()
-        # self.random_consistent_walk()
+        # self.random_step()
+        self.random_consistent_walk()
 
     def select_epilson_greedy_action(self, observation):
         sample = random.random()
@@ -136,7 +136,7 @@ class DQNAgentSingle(Agent):
             print ("positions: ", position, next_position, self.goal['position'])
             reward = self.compute_reward(position, next_position, self.goal['position'])
             print ("---> reward {}".format(reward))
-            self.memory.append((current_state, closest_state, future_state), action, reward, False)
+            self.memory.append([current_state, closest_state, future_state], action, reward, False)
             previous_state = current_state.copy()
             current_state = next_state.copy()
             position = next_position

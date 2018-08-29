@@ -35,7 +35,8 @@ class Agent:
         i = 1
         for i in range(1, len(path)):
             future_state = self.sptm.memory[path[i]].state
-            actions = self.navigation.forward(previous_state, current_state, future_state)
+            # actions = self.navigation.forward(previous_state, current_state, future_state)
+            actions = self.navigation.forward(current_state, self.sptm.memory[path[0]].state, future_state)
             prob, pred = torch.max(actions.data, 1)
             prob = prob.data.cpu().item()
             action = pred.data.cpu().item()

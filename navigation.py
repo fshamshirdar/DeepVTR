@@ -9,6 +9,7 @@ from torchvision import models
 from loconet import LocoNet
 from sklearn.metrics import accuracy_score
 
+from PIL import Image
 import numpy as np
 import os
 import time
@@ -18,7 +19,7 @@ from dataset import RecordedAirSimDataLoader
 import constants
 
 class Navigation:
-    def __init__(self):
+    def __init__(self, checkpoint=None, use_cuda=True):
         kwargs = {'num_classes': constants.LOCO_NUM_CLASSES}
         self.model = models.resnet18(**kwargs)  # (num_classes=constants.LOCO_NUM_CLASSES)
         self.model.conv1 = nn.Conv2d(6, 64, kernel_size=7, stride=2, padding=3, bias=False) # to accept 9 channels instead
@@ -47,6 +48,12 @@ class Navigation:
             self.normalize
         ])
 
+        if (checkpoint is not None):
+            self.load_weights(checkpoint)
+
+        if (use_cuda):
+            self.cuda()
+
     def load_weights(self, checkpoint_path):
         checkpoint = torch.load(checkpoint_path)
         self.model.load_state_dict(checkpoint['state_dict'])
@@ -58,11 +65,11 @@ class Navigation:
     def forward(self, current_state, closest_state, future_state):
         if (isinstance(current_state, (np.ndarray, np.generic))):
             current_tensor = self.np_preprocess(current_state)
-            closest_tensor = self.np_preprocess(closest_state)
+            # closest_tensor = self.np_preprocess(closest_state)
             future_tensor = self.np_preprocess(future_state)
         else:
             current_tensor = self.preprocess(current_state)
-            closest_tensor = self.preprocess(closest_state)
+            # closest_tensor = self.preprocess(closest_state)
             future_tensor = self.preprocess(future_state)
 
         # packed_array = np.concatenate([current_tensor, closest_tensor, future_tensor], axis=0)
@@ -229,3 +236,10 @@ class Navigation:
 
         epoch_acc = (float(running_corrects) / float(len(data_loader.dataset))) * 100.0
         print("Accuracy {} ".format(epoch_acc))
+
+    def test(self, current_image_path, future_image_path):
+        current_image = Image.open(current_image_path).convert('RGB')
+        future_image = Image.open(future_image_path).convert('RGB')
+        self.model.eval()
+        outputs = self.forward(current_image, None, future_image)
+        print (outputs)

@@ -83,10 +83,11 @@ class AirSimAgent(Agent):
             else:
                 future_state = self.sptm.memory[path[1]].state
                 # actions = self.navigation.forward(previous_state, current_state, future_state)
-                actions = self.navigation.forward(current_state, self.sptm.memory[matched_index].state, future_state)
+                # actions = self.navigation.forward(current_state, self.sptm.memory[matched_index].state, future_state)
+                actions = self.navigation.forward(current_state, None, future_state)
                 actions = torch.squeeze(actions)
                 sorted_actions, indices = torch.sort(actions, descending=True)
-                print (actions, indices)
+                print ("actions: ", actions, indices)
                 action = indices[0]
                 if ((previous_action == 0 and action == 5) or
                     (previous_action == 5 and action == 0) or
@@ -96,16 +97,14 @@ class AirSimAgent(Agent):
                     (previous_action == 5 and action == 4)):
                     action = indices[1]
 
-                # prob, pred = torch.max(actions.data, 1)
+                # prob, pred = torch.max(actions.data, 0)
                 # prob = prob.data.cpu().item()
                 # action = pred.data.cpu().item()
-                # print ("action %d" % action)
-
+                # print ("actions: ", actions, action)
 
                 # select based on probability distribution
-                # action = np.random.choice(np.arange(0, 6), p=actions.data.cpu().numpy()[0])
-                # prob = actions[0][action].data.cpu().item()
-                # end
+                # action = np.random.choice(np.arange(0, constants.LOCO_NUM_CLASSES), p=actions.data.cpu().numpy())
+                # prob = actions[action].data.cpu().item()
 
             from PIL import Image
             current_image = Image.fromarray(current_state)
@@ -185,7 +184,7 @@ class AirSimAgent(Agent):
         print ("Running repeating phase")
         self.repeat()
 
-        init_position, init_orientation = [10, 4, -6], [0, 0, 0]
+        init_position, init_orientation = [10, 0, -6], [0, 0, 0]
         self.env.set_initial_pose(init_position, init_orientation)
         self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
         time.sleep(1)
