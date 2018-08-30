@@ -9,9 +9,9 @@ from agent import Agent
 import constants
 
 class VizDoomAgent(Agent):
-    def __init__(self, placeRecognition, navigation, wad, teachCommandsFile=None):
+    def __init__(self, placeRecognition, navigation, wad, game_args=[], teachCommandsFile=None):
         super(VizDoomAgent, self).__init__(placeRecognition, navigation)
-        self.game = self.initialize_game(wad)
+        self.game = self.initialize_game(wad, game_args)
         self.goal = None
         self.init = None
         self.teachCommandsFile = teachCommandsFile
@@ -19,9 +19,11 @@ class VizDoomAgent(Agent):
         self.navigation.model.eval()
         self.new_seed()
 
-    def initialize_game(self, wad):
+    def initialize_game(self, wad, game_args):
         game = DoomGame()
         game.load_config(constants.VIZDOOM_DEFAULT_CONFIG)
+        for args in game_args:
+            game.add_game_args(args)
         game.set_doom_scenario_path(wad)
         game.set_seed(self.new_seed())
         game.init()

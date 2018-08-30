@@ -65,6 +65,7 @@ class PlaceRecognition:
         if (checkpoint is not None):
             self.load_weights(checkpoint)
 
+        self.use_cuda = use_cuda
         if (use_cuda):
             self.cuda()
 
@@ -81,8 +82,7 @@ class PlaceRecognition:
         else:
             image_tensor = self.preprocess(input)
         image_tensor.unsqueeze_(0)
-        use_gpu = torch.cuda.is_available()
-        if use_gpu:
+        if self.use_cuda:
             image_tensor = image_tensor.cuda()
         image_variable = Variable(image_tensor)
         return self.model(image_variable, flatten) # get representation
@@ -92,7 +92,6 @@ class PlaceRecognition:
         return similarity_score[0]
 
     def train(self, datapath, checkpoint_path, train_iterations):
-        use_gpu = torch.cuda.is_available()
         # criterion = nn.CrossEntropyLoss()
         criterion = torch.nn.MarginRankingLoss(margin=constants.TRAINING_PLACE_MARGIN)
         optimizer = optim.SGD(list(filter(lambda p: p.requires_grad, self.tripletnet.parameters())), lr=constants.TRAINING_PLACE_LR, momentum=constants.TRAINING_PLACE_MOMENTUM)
@@ -128,7 +127,7 @@ class PlaceRecognition:
                     anchor, positive, negative = data
 
                     # wrap them in Variable
-                    if use_gpu:
+                    if self.use_cuda:
                         anchor, positive, negative = anchor.cuda(), positive.cuda(), negative.cuda()
                     anchor, positive, negative = Variable(anchor), Variable(positive), Variable(negative)
 
@@ -142,7 +141,7 @@ class PlaceRecognition:
                     similarity_a, similarity_b, embedded_x, embedded_y, embedded_z = self.tripletnet(anchor, positive, negative)
                     # 1 means, similarity_a should be larger than similarity_b
                     target = torch.FloatTensor(similarity_a.size()).fill_(1)
-                    if use_gpu:
+                    if self.use_cuda:
                         target = target.cuda()
                     target = Variable(target)
         
@@ -193,7 +192,6 @@ class PlaceRecognition:
         torch.save(state, os.path.join(checkpoint_path, "place_checkpoint_{}.pth".format(epoch)))
 
     def eval(self, datapath):
-        use_gpu = torch.cuda.is_available()
         kwargs = {'num_workers': 8, 'pin_memory': True} if torch.cuda.is_available() else {}
         data_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader(datapath, locomotion=False, transform=self.preprocess, validation=True), batch_size=constants.TRAINING_PLACE_BATCH, shuffle=True, **kwargs)
         criterion = torch.nn.MarginRankingLoss(margin=constants.TRAINING_PLACE_MARGIN)
@@ -204,7 +202,7 @@ class PlaceRecognition:
             anchor, positive, negative = data
 
             # wrap them in Variable
-            if use_gpu:
+            if self.use_cuda:
                 anchor, positive, negative = anchor.cuda(), positive.cuda(), negative.cuda()
             anchor, positive, negative = Variable(anchor), Variable(positive), Variable(negative)
 
@@ -216,7 +214,7 @@ class PlaceRecognition:
             print (similarity_a - similarity_b)
             # 1 means, similarity_a should be larger than similarity_b
             target = torch.FloatTensor(similarity_a.size()).fill_(1)
-            if use_gpu:
+            if self.use_cuda:
                 target = target.cuda()
             target = Variable(target)
         

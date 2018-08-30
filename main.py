@@ -14,17 +14,18 @@ from dqn_agent import DQNAgent
 from dqn_agent_single import DQNAgentSingle
 from airsim_agent import AirSimAgent
 from vizdoom_agent import VizDoomAgent
+from multi_vizdoom_agent import MultiVizDoomAgent
 # from bebop_agent import BebopAgent
 # from pioneer_agent import PioneerAgent
 from place_recognition import PlaceRecognition
 from navigation import Navigation
-from placenav import PlaceNavigation
+# from placenav import PlaceNavigation
 import constants
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='')
 
-    parser.add_argument('--mode', default='train', type=str, help='support option: airsim_collect/train_place/train_nav/eval_place/eval_nav/test_nav/train_placenav/eval_placenav/dqn_agent/dqn_agent_single/airsim_agent/bebop_agent/pioneer_agent/vizdoom_agent')
+    parser.add_argument('--mode', default='train', type=str, help='support option: airsim_collect/train_place/train_nav/eval_place/eval_nav/test_nav/train_placenav/eval_placenav/dqn_agent/dqn_agent_single/airsim_agent/bebop_agent/pioneer_agent/vizdoom_agent/multi_vizdoom_agent')
     parser.add_argument('--datapath', default='dataset', type=str, help='path to dataset')
     parser.add_argument('--env', default='Pendulum-v0', type=str, help='open-ai gym environment')
     parser.add_argument('--collect_index', default=0, type=int, help='collect intial index')
@@ -59,6 +60,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     use_cuda = torch.cuda.is_available()
+    use_cuda = False
     if args.mode == 'airsim_collect':
         dataCollector = DataCollector(args.datapath)
         dataCollector.collect(args.collect_index)
@@ -77,14 +79,14 @@ if __name__ == "__main__":
     elif args.mode == 'test_nav':
         navigation = Navigation(args.navigation_checkpoint, use_cuda)
         navigation.test('current.png', 'future.png')
-    elif args.mode == 'train_placenav':
-        placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
-        placeNav = PlaceNavigation(placeRecognition, args.placenav_checkpoint, use_cuda)
-        placeNav.train(args.datapath, args.checkpoint_path, args.train_iter)
-    elif args.mode == 'eval_placenav':
-        placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
-        placeNav = PlaceNavigation(placeRecognition, args.placenav_checkpoint, use_cuda)
-        placeNav.train(args.datapath, args.checkpoint_path, args.train_iter)
+#    elif args.mode == 'train_placenav':
+#        placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
+#        placeNav = PlaceNavigation(placeRecognition, args.placenav_checkpoint, use_cuda)
+#        placeNav.train(args.datapath, args.checkpoint_path, args.train_iter)
+#    elif args.mode == 'eval_placenav':
+#        placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
+#        placeNav = PlaceNavigation(placeRecognition, args.placenav_checkpoint, use_cuda)
+#        placeNav.train(args.datapath, args.checkpoint_path, args.train_iter)
     elif args.mode == 'dqn_agent':
         placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
         navigation = Navigation(args.navigation_checkpoint, use_cuda)
@@ -113,7 +115,12 @@ if __name__ == "__main__":
     elif args.mode == 'vizdoom_agent':
         placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
         navigation = Navigation(args.navigation_checkpoint, use_cuda)
-        vizDoomAgent = VizDoomAgent(placeRecognition, navigation, args.wad, teachCommandsFile=args.teach_dump)
+        vizDoomAgent = VizDoomAgent(placeRecognition, navigation, args.wad, game_args=[], teachCommandsFile=args.teach_dump)
         vizDoomAgent.run()
+    elif args.mode == 'multi_vizdoom_agent':
+        placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
+        navigation = Navigation(args.navigation_checkpoint, use_cuda)
+        multiVizDoomAgent = MultiVizDoomAgent(placeRecognition, navigation, args.wad, teachCommandsFile=args.teach_dump)
+        multiVizDoomAgent.run()
     else:
         pass
