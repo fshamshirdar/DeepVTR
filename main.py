@@ -10,17 +10,22 @@ import torch
 
 from data_collector import DataCollector
 from agent import Agent
+from dqn_agent import DQNAgent
+from dqn_agent_single import DQNAgentSingle
 from airsim_agent import AirSimAgent
-from bebop_agent import BebopAgent
-from pioneer_agent import PioneerAgent
+from vizdoom_agent import VizDoomAgent
+from multi_vizdoom_agent import MultiVizDoomAgent
+# from bebop_agent import BebopAgent
+# from pioneer_agent import PioneerAgent
 from place_recognition import PlaceRecognition
 from navigation import Navigation
+# from placenav import PlaceNavigation
 import constants
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='')
 
-    parser.add_argument('--mode', default='train', type=str, help='support option: airsim_collect/train_place/train_nav/eval_place/eval_nav/airsim_agent/bebop_agent/pioneer_agent')
+    parser.add_argument('--mode', default='train', type=str, help='support option: airsim_collect/train_place/train_nav/eval_place/eval_nav/test_nav/train_placenav/eval_placenav/dqn_agent/dqn_agent_single/airsim_agent/bebop_agent/pioneer_agent/vizdoom_agent/multi_vizdoom_agent')
     parser.add_argument('--datapath', default='dataset', type=str, help='path to dataset')
     parser.add_argument('--env', default='Pendulum-v0', type=str, help='open-ai gym environment')
     parser.add_argument('--collect_index', default=0, type=int, help='collect intial index')
@@ -47,42 +52,75 @@ if __name__ == "__main__":
     parser.add_argument('--seed', default=-1, type=int, help='')
     parser.add_argument('--place_checkpoint', type=str, help='Place Checkpoint path')
     parser.add_argument('--navigation_checkpoint', type=str, help='Navigation Checkpoint path')
+    parser.add_argument('--placenav_checkpoint', type=str, help='PlaceNav Checkpoint path')
     parser.add_argument('--teach_dump', type=str, help='Teach dump commands file')
+    parser.add_argument('--wad', type=str, default='vizdoom/Train/D3_battle_navigation_split.wad_manymaps_test.wad', help='WAD path')
+    parser.add_argument('--dump_memory_path', type=str, help='Dump memory path')
 
     args = parser.parse_args()
 
-    placeRecognition = PlaceRecognition()
-    navigation = Navigation()
-    if args.place_checkpoint is not None:
-        placeRecognition.load_weights(args.place_checkpoint)
-    if args.navigation_checkpoint is not None:
-        navigation.load_weights(args.navigation_checkpoint)
-
-#    agent = Agent(placeRecognition, navigation)
-
-    if torch.cuda.is_available():
-        placeRecognition.cuda()
-        navigation.cuda()
-
+    use_cuda = torch.cuda.is_available()
+    use_cuda = False
     if args.mode == 'airsim_collect':
         dataCollector = DataCollector(args.datapath)
         dataCollector.collect(args.collect_index)
     elif args.mode == 'train_place':
+        placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
         placeRecognition.train(args.datapath, args.checkpoint_path, args.train_iter)
     elif args.mode == 'eval_place':
+        placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
         placeRecognition.eval(args.datapath)
     elif args.mode == 'train_nav':
+        navigation = Navigation(args.navigation_checkpoint, use_cuda)
         navigation.train(args.datapath, args.checkpoint_path, args.train_iter)
     elif args.mode == 'eval_nav':
+        navigation = Navigation(args.navigation_checkpoint, use_cuda)
         navigation.eval(args.datapath)
+    elif args.mode == 'test_nav':
+        navigation = Navigation(args.navigation_checkpoint, use_cuda)
+        navigation.test('current.png', 'future.png')
+#    elif args.mode == 'train_placenav':
+#        placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
+#        placeNav = PlaceNavigation(placeRecognition, args.placenav_checkpoint, use_cuda)
+#        placeNav.train(args.datapath, args.checkpoint_path, args.train_iter)
+#    elif args.mode == 'eval_placenav':
+#        placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
+#        placeNav = PlaceNavigation(placeRecognition, args.placenav_checkpoint, use_cuda)
+#        placeNav.train(args.datapath, args.checkpoint_path, args.train_iter)
+    elif args.mode == 'dqn_agent':
+        placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
+        navigation = Navigation(args.navigation_checkpoint, use_cuda)
+        dqnAgent = DQNAgent(placeRecognition, navigation, args.checkpoint_path, args.train_iter, args.teach_dump)
+        dqnAgent.run()
+    elif args.mode == 'dqn_agent_single':
+        placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
+        navigation = Navigation(args.navigation_checkpoint, use_cuda)
+        dqnAgentSingle = DQNAgentSingle(placeRecognition, navigation, args.checkpoint_path, args.train_iter, args.dump_memory_path)
+        dqnAgentSingle.run()
     elif args.mode == 'airsim_agent':
+        placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
+        navigation = Navigation(args.navigation_checkpoint, use_cuda)
         airSimAgent = AirSimAgent(placeRecognition, navigation, teachCommandsFile=args.teach_dump)
         airSimAgent.run()
     elif args.mode == 'bebop_agent':
+        placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
+        navigation = Navigation(args.navigation_checkpoint, use_cuda)
         bebopAgent = BebopAgent(placeRecognition, navigation, teachCommandsFile=args.teach_dump)
         bebopAgent.run()
     elif args.mode == 'pioneer_agent':
+        placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
+        navigation = Navigation(args.navigation_checkpoint, use_cuda)
         pioneerAgent = PioneerAgent(placeRecognition, navigation, teachCommandsFile=args.teach_dump)
         pioneerAgent.run()
+    elif args.mode == 'vizdoom_agent':
+        placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
+        navigation = Navigation(args.navigation_checkpoint, use_cuda)
+        vizDoomAgent = VizDoomAgent(placeRecognition, navigation, args.wad, game_args=[], teachCommandsFile=args.teach_dump)
+        vizDoomAgent.run()
+    elif args.mode == 'multi_vizdoom_agent':
+        placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
+        navigation = Navigation(args.navigation_checkpoint, use_cuda)
+        multiVizDoomAgent = MultiVizDoomAgent(placeRecognition, navigation, args.wad, teachCommandsFile=args.teach_dump)
+        multiVizDoomAgent.run()
     else:
         pass

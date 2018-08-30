@@ -15,11 +15,7 @@ from PIL import Image
 import numpy as np
 
 class Agent:
-    def __init__(self, placeRecognition=None, navigation=None):
-        if placeRecognition == None:
-            placeRecognition = PlaceRecognition()
-        if navigation == None:
-            navigation = PlaceRecognition()
+    def __init__(self, placeRecognition, navigation):
         self.place_recognition = placeRecognition
         self.sptm = SPTM(self.place_recognition)
         self.navigation = navigation
@@ -39,7 +35,8 @@ class Agent:
         i = 1
         for i in range(1, len(path)):
             future_state = self.sptm.memory[path[i]].state
-            actions = self.navigation.forward(previous_state, current_state, future_state)
+            # actions = self.navigation.forward(previous_state, current_state, future_state)
+            actions = self.navigation.forward(current_state, self.sptm.memory[path[0]].state, future_state)
             prob, pred = torch.max(actions.data, 1)
             prob = prob.data.cpu().item()
             action = pred.data.cpu().item()

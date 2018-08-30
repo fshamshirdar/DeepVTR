@@ -39,8 +39,10 @@ class AirSimEnv(gym.Env):
         self.steps += 1
         collided = self.client.take_action(action)
         position = self.client.getPosition()
+        quatornion = self.client.getOrientation()
+        orientation = AirSimClientBase.toEulerianAngle(quatornion)
         
-        info = {"x_pos" : position.x_val, "y_pos" : position.y_val}
+        info = {"x_pos" : position.x_val, "y_pos" : position.y_val, "z_pos": position.z_val, "yaw": orientation[2]}
         self.state = self.client.getImage()
         reward = 0
         done = collided
@@ -95,6 +97,9 @@ class AirSimEnv(gym.Env):
         self.client.set_pose(pose, orientation)
 
     def get_position_orientation(self):
-        pos = self.client.getPosition()
-        orientation = self.client.getOrientation()
-        return pos, orientation
+        position = self.client.getPosition()
+        quatornion = self.client.getOrientation()
+        orientation = AirSimClientBase.toEulerianAngle(quatornion)
+        
+        position = {"x_pos" : position.x_val, "y_pos" : position.y_val, "z_pos": position.z_val, "yaw": orientation[2]}
+        return position

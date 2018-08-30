@@ -53,23 +53,47 @@ class RecordedAirSimDataLoader(torch.utils.data.Dataset):
         action = self.actions[round_index][index]
 
         future_addition_index = random.randint(1, constants.DATASET_MAX_ACTION_DISTANCE)
-        future_index = index + future_addition_index
-        if future_index >= len(self.actions[round_index]):
-            future_index = index + 1
+        #future_index = index + future_addition_index
+        #if future_index >= len(self.actions[round_index]):
+        #    future_index = index + 1
+
+        permitted_actions = [i for i in range(0, constants.LOCO_NUM_CLASSES)]
+        for i in range(1, future_addition_index+1):
+            future_index = index + i
+            if (future_index >= len(self.actions[round_index])):
+                future_index -= 1
+                break
+            future_action = self.actions[round_index][future_index]
+            if (future_action not in permitted_actions):
+                future_index -= 1
+                break
+            if (future_action == 0 and 5 in permitted_actions):
+                permitted_actions.remove(5)
+            elif (future_action == 5 and 0 in permitted_actions):
+                permitted_actions.remove(0)
+            elif (future_action == 1 and 2 in permitted_actions):
+                permitted_actions.remove(2)
+            elif (future_action == 2 and 1 in permitted_actions):
+                permitted_actions.remove(1)
+            elif (future_action == 3 and 4 in permitted_actions):
+                permitted_actions.remove(4)
+            elif (future_action == 4 and 3 in permitted_actions):
+                permitted_actions.remove(3)
+
         previous_index = index - 1
         if previous_index < 0:
             previous_index = 0
 
         current_state = self.loader(os.path.join(self.base_path, self.indexes[round_index], str(index)+".png"))
-        previous_state = self.loader(os.path.join(self.base_path, self.indexes[round_index], str(previous_index)+".png"))
+        # previous_state = self.loader(os.path.join(self.base_path, self.indexes[round_index], str(previous_index)+".png"))
         future_state = self.loader(os.path.join(self.base_path, self.indexes[round_index], str(future_index)+".png"))
         if self.transform is not None:
             current_state = self.transform(current_state)
-            previous_state = self.transform(previous_state)
+            # previous_state = self.transform(previous_state)
             future_state = self.transform(future_state)
 
-        state = np.concatenate([previous_state, current_state, future_state], axis=0)
-        # state = np.concatenate([current_state, future_state], axis=0)
+        # state = np.concatenate([previous_state, current_state, future_state], axis=0)
+        state = np.concatenate([current_state, future_state], axis=0)
 
         return state, action
 

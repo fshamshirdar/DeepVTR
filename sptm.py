@@ -1,11 +1,12 @@
 import numpy as np
+import math
 import networkx
 import constants
 from collections import namedtuple
 
 from place_recognition import PlaceRecognition
 
-Keyframe = namedtuple('Keyframe', 'state, rep, action, terminal')
+Keyframe = namedtuple('Keyframe', 'state, rep, action, terminal, position')
 
 class SPTM:
     def __init__(self, placeRecognition):
@@ -14,9 +15,9 @@ class SPTM:
         self.placeRecognition = placeRecognition
         self.shortcuts = []
 
-    def append_keyframe(self, input, action=None, terminal=False):
+    def append_keyframe(self, input, action=None, terminal=False, position=None):
         rep = self.placeRecognition.forward(input)
-        self.memory.append(Keyframe(state=input, rep=rep.data.cpu(), action=0, terminal=terminal)) # temporary for cpu()
+        self.memory.append(Keyframe(state=input, rep=rep.data.cpu(), action=0, terminal=terminal, position=position)) # temporary for cpu()
         return rep, True
 
     def len(self):
@@ -33,7 +34,7 @@ class SPTM:
         self.graph = networkx.Graph()
         self.shortcuts = []
 
-    def build_graph(self):
+    def build_graph(self, with_shortcuts=True):
         memory_size = len(self.memory)
         self.graph = networkx.Graph()
         self.graph.add_nodes_from(range(memory_size))
@@ -41,19 +42,20 @@ class SPTM:
             self.graph.add_edge(first, first + 1)
             self.graph.add_edge(first + 1, first)
 
-            for second in range(first + 1 + constants.MIN_SHORTCUT_DISTANCE, len(self.memory)):
-                values = []
-                for shift in range(-constants.SHORTCUT_WINDOW, constants.SHORTCUT_WINDOW + 1):
-                    first_shifted = first + shift
-                    second_shifted = second + shift
-                    if first_shifted < memory_size and second_shifted < memory_size and first_shifted >= 0 and second_shifted >= 0:
-                        values.append(self.placeRecognition.compute_similarity_score(self.memory[first_shifted].rep, self.memory[second_shifted].rep))
-                quality = np.median(values)
-                # print (first, second, quality)
-                if (quality > constants.SHORTCUT_SIMILARITY_THRESHOLD):
-                    self.shortcuts.append((quality, first, second))
-                    self.graph.add_edge(first, second)
-                    self.graph.add_edge(second, first)
+            if (with_shortcuts):
+                for second in range(first + 1 + constants.MIN_SHORTCUT_DISTANCE, len(self.memory)):
+                    values = []
+                    for shift in range(-constants.SHORTCUT_WINDOW, constants.SHORTCUT_WINDOW + 1):
+                        first_shifted = first + shift
+                        second_shifted = second + shift
+                        if first_shifted < memory_size and second_shifted < memory_size and first_shifted >= 0 and second_shifted >= 0:
+                            values.append(self.placeRecognition.compute_similarity_score(self.memory[first_shifted].rep, self.memory[second_shifted].rep))
+                    quality = np.median(values)
+                    # print (first, second, quality)
+                    if (quality > constants.SHORTCUT_SIMILARITY_THRESHOLD):
+                        self.shortcuts.append((quality, first, second))
+                        self.graph.add_edge(first, second)
+                        self.graph.add_edge(second, first)
 
     def add_shortcut(self, first, second, quality):
         self.shortcuts.append((quality, first, second))
@@ -107,6 +109,34 @@ class SPTM:
                     best_velocity = sequence_velocity
 
         return matched_index, max_similarity_score, best_velocity
+
+    def ground_relocalize(self, position):
+        memory_size = len(self.memory)
+        min_distance = 10000.
+        matched_index = -1
+        for index in range(memory_size):
+            distance = math.sqrt((position[0] - self.memory[index].position[0]) ** 2 +
+                                 (position[1] - self.memory[index].position[1]) ** 2 +
+                                 (position[2] - self.memory[index].position[2]) ** 2)
+            if (distance < min_distance):
+                min_distance = distance
+                matched_index = index
+
+        return matched_index, min_distance, 0
+
+    def ground_lookahead_relocalize(self, position):
+        memory_size = len(self.memory)
+        min_distance = 10000.
+        matched_index = -1
+        for index in reversed(range(memory_size)):
+            distance = math.sqrt((position[0] - self.memory[index].position[0]) ** 2 +
+                                 (position[1] - self.memory[index].position[1]) ** 2 +
+                                 (position[2] - self.memory[index].position[2]) ** 2)
+            if (distance < constants.DQN_MAX_DISTANCE_THRESHOLD):
+                matched_index = index
+                return matched_index, distance, 0
+
+        return matched_index, min_distance, 0
 
     def particle_filter_localization(self, sequence):
         return -1
