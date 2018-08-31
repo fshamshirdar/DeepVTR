@@ -73,17 +73,17 @@ class VizDoomSingleAgent:
             action = random.randint(0, constants.LOCO_NUM_CLASSES-1)
             next_state = self.step(action)
         else:
-            # if (index+1 >= self.trail.len()):
-            #     future_state = self.trail.waypoints[index].state
-            # else:
-            #     future_state = self.trail.waypoints[index+1].state
-            future_state = self.trail.waypoints[index].state
+            if (index+1 >= self.trail.len()):
+                future_state = self.trail.waypoints[index].state
+            else:
+                future_state = self.trail.waypoints[index+1].state
+            # future_state = self.trail.waypoints[index].state
             actions = self.navigation.forward(self.current_state, self.trail.waypoints[index].state, future_state)
             actions = torch.squeeze(actions)
             sorted_actions, indices = torch.sort(actions, descending=True)
             action = indices[0]
-            if ((self.previous_action == 0 and action == 5) or
-                (self.previous_action == 5 and action == 0) or
+            if ((self.previous_action == 0 and action == 3) or
+                (self.previous_action == 3 and action == 0) or
                 (self.previous_action == 1 and action == 2) or
                 (self.previous_action == 2 and action == 1) or
                 (self.previous_action == 4 and action == 5) or
@@ -121,7 +121,6 @@ class VizDoomSingleAgent:
                 for state in self.temporary_trail:
                     self.trail.append_waypoint(input=state, created_at=self.cycle, steps_to_goal=steps_to_goal)
                     steps_to_goal -= 1
-                time.sleep(1)
                 self.reset_episode()
 
 class MultiVizDoomAgent(MultiAgent):
