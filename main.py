@@ -62,7 +62,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     use_cuda = torch.cuda.is_available()
-    use_cuda = False
     if args.mode == 'airsim_collect':
         dataCollector = AirSimDataCollector(args.datapath)
         dataCollector.collect(args.collect_index)
