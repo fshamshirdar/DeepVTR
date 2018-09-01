@@ -11,7 +11,7 @@ from AirSimClient import AirSimClientBase # needed for write_png
 
 import constants
 
-class DataCollector:
+class AirSimDataCollector:
     def __init__(self, datapath):
         self.base_path = datapath
         self.env = gym.make('AirSim-v1')

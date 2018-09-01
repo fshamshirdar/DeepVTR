@@ -5,85 +5,62 @@ import numpy as np
 # from multiprocessing import Process
 from collections import deque
 import torch
-from vizdoom import *
+import gym
+import gym_airsim
 
 from multi_agent import MultiAgent
 import constants
 
-class VizDoomSingleAgent:
-    def __init__(self, placeRecognition, trail, navigation, wad, seed=0, game_args=[]):
+class AirSimSingleAgent:
+    def __init__(self, placeRecognition, trail, navigation):
+        self.env = gym.make('AirSim-v1') 
         self.placeRecognition = placeRecognition
         self.trail = trail
         self.navigation = navigation
         self.agent_state = constants.MULTI_AGENT_STATE_SEARCH
         self.temporary_trail = []
         self.goal = None
-        self.init = None
-        self.seed = seed
+        self.init = self.env.reset()
         self.cycle = 0
         self.sequence = deque(maxlen=constants.SEQUENCE_LENGTH)
         self.current_state = None
         self.previous_action = 0
-        self.game = self.initialize_game(wad, game_args)
         self.placeRecognition.model.eval()
         self.navigation.model.eval()
-        self.test_actions = [1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0]
-        self.test_actions_id = 0
-
-    def initialize_game(self, wad, game_args):
-        game = DoomGame()
-        game.load_config(constants.VIZDOOM_DEFAULT_CONFIG)
-        for args in game_args:
-            game.add_game_args(args)
-        game.set_doom_scenario_path(wad)
-        game.set_seed(self.seed)
-        game.init()
-        return game
-
-    def set_seed(self, seed):
-        self.seed = seed
-
-    def set_map(self, selected_map):
-        self.game.set_doom_map(selected_map)
+        self.test_actions = [0, 0, 0, 0, 3, 0, 1, 2, 1, 1, 1, 1, 1, 1, 1, 0, 4, 0, 5, 0, 0]
+        self.test_action_id = 0
 
     def reset_episode(self):
-        self.game.set_seed(self.seed)
-        self.game.new_episode()
-        state = self.game.get_state().screen_buffer.transpose([1, 2, 0])
+        self.test_action_id = 0
+        init_position, init_orientation = [10, 0, -6], [0, 0, 0]
+        self.env.set_initial_pose(init_position, init_orientation)
+        self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
+        time.sleep(1)
+        state = self.env.reset()
         self.init = state
         self.current_state = state
         self.temporary_trail = [state]
         self.sequence = deque(maxlen=constants.SEQUENCE_LENGTH)
-        self.test_action_id = 0
-        return state
-
-    def step(self, action, repeat=4):
-        self.game.make_action(constants.VIZDOOM_ACTIONS_LIST[action], repeat)
-        state = self.game.get_state().screen_buffer.transpose([1, 2, 0])
-        # time.sleep(0.1)
         return state
 
     def goal_reached(self, pose):
-        # return (math.fabs(pose[0] - 630.0) < 50. and
-        #         math.fabs(pose[1] - 550.0) < 50. and
-        #         math.fabs(pose[3] - 130.) < 30.)
-
-        return (math.fabs(pose[0] - 500.0) < 50. and
-                math.fabs(pose[1] - 580.0) < 50. and
-                math.fabs(pose[3] - 100.) < 30.)
+#        return (self.test_action_id >= len(self.test_actions)) # TODO: temporary
+        return (math.fabs(pose['x_pos'] - 12.6) < 0.5 and
+                math.fabs(pose['y_pos'] - 1.8) < 0.5 and
+                math.fabs(pose['yaw'] - 1.2) < 0.5)
 
     def search(self):
-        # print ("pose: ", self.game.get_state().game_variables)
-        index, score, velocity = self.trail.find_closest_waypoint(self.sequence)
-        # index, score, velocity = self.trail.find_best_waypoint(self.sequence)
+        print ("pose: ", self.env.get_position_orientation())
+        # index, score, velocity = self.trail.find_closest_waypoint(self.sequence)
+        index, score, velocity = self.trail.find_best_waypoint(self.sequence)
         # index, score, velocity = self.trail.find_most_similar_waypoint(self.sequence)
         # index = -1
-        if (index == -1): # or random.random() < constants.MULTI_AGENT_RANDOM_MOVEMENT_CHANCE):
-            action = random.randint(0, constants.LOCO_NUM_CLASSES-1)
-            # action = self.test_actions[self.test_action_id]
-            # self.test_action_id += 1
-            next_state = self.step(action)
-            # print (action)
+        if (index == -1): # or random.random() < constants.MULTI_AGENT_RANDOM_MOVEMENT_CHANCE): # TODO
+            # action = random.randint(0, constants.LOCO_NUM_CLASSES-1)
+            action = self.test_actions[self.test_action_id]
+            self.test_action_id += 1
+            next_state, _, done, info = self.env.step(action)
+            print (action)
         else:
             # if (index+1 >= self.trail.len()):
             #     future_state = self.trail.waypoints[index].state
@@ -102,7 +79,7 @@ class VizDoomSingleAgent:
                 (self.previous_action == 5 and action == 4)):
                 action = indices[1]
             print ("matched: ", index, score, actions)
-            next_state = self.step(action, repeat=2)
+            next_state, _, done, info = self.env.step(action)
 
             from PIL import Image
             # current_image = Image.fromarray(self.current_state)
@@ -113,19 +90,19 @@ class VizDoomSingleAgent:
         self.previous_action = action
         self.current_state = next_state
         if (self.trail.len() > 0):
-            next_rep = self.placeRecognition.forward(next_state).data.cpu()
+            next_rep = self.placeRecognition.forward(next_state)
             self.sequence.append(next_rep)
         self.temporary_trail.append(next_state)
+        return info
 
     def update(self, cycle):
         self.cycle = cycle
         if (self.agent_state == constants.MULTI_AGENT_STATE_SEARCH):
-            if (len(self.temporary_trail) > 200): # TODO: temporary
+            if (len(self.temporary_trail) > 100): # TODO: temporary
                 print ("got too long, resetting")
                 self.reset_episode()
 
-            self.search()
-            pose = self.game.get_state().game_variables
+            pose = self.search()
             if (self.goal_reached(pose)):
                 # self.agent_state = constants.MULTI_AGENT_STATE_HOME
                 steps_to_goal = len(self.temporary_trail)
@@ -135,32 +112,20 @@ class VizDoomSingleAgent:
                     steps_to_goal -= 1
                 self.reset_episode()
 
-class MultiVizDoomAgent(MultiAgent):
-    def __init__(self, placeRecognition, navigation, wad):
-        super(MultiVizDoomAgent, self).__init__(placeRecognition, navigation)
+class MultiAirSimAgent(MultiAgent):
+    def __init__(self, placeRecognition, navigation):
+        super(MultiAirSimAgent, self).__init__(placeRecognition, navigation)
         self.placeRecognition = placeRecognition
         self.navigation = navigation
-        self.wad = wad
-        self.seed = self.new_seed()
         self.cycle = 0
         self.agents = []
         self.placeRecognition.model.eval()
         self.navigation.model.eval()
         for i in range(constants.MULTI_NUM_AGENTS):
-            self.agents.append(VizDoomSingleAgent(self.placeRecognition, self.trail, self.navigation, self.wad, self.seed, game_args=[]))
-
-    def new_seed(self):
-        self.seed = 100 # random.randint(1, 1234567890)
-        return self.seed
+            self.agents.append(AirSimSingleAgent(self.placeRecognition, self.trail, self.navigation))
 
     def run(self):
-        # p1 = Process(target=self.agent1.run())
-        # p1.start()
-        # self.agent2.run()
-
-        selected_map = (constants.VIZDOOM_MAP_NAME_TEMPLATE % random.randint(constants.VIZDOOM_MIN_RANDOM_TEXTURE_MAP_INDEX, constants.VIZDOOM_MAX_RANDOM_TEXTURE_MAP_INDEX))
         for i in range(constants.MULTI_NUM_AGENTS):
-            self.agents[i].set_map(selected_map)
             self.agents[i].reset_episode()
 
         while (True):
