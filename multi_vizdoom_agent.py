@@ -113,7 +113,7 @@ class VizDoomSingleAgent:
         self.previous_action = action
         self.current_state = next_state
         if (self.trail.len() > 0):
-            next_rep = self.placeRecognition.forward(next_state)
+            next_rep = self.placeRecognition.forward(next_state).data.cpu()
             self.sequence.append(next_rep)
         self.temporary_trail.append(next_state)
 
