@@ -86,7 +86,7 @@ class VizDoomAgent(Agent):
             self.goal = state
             state = next_state
             i = i+1
-            time.sleep(1)
+            time.sleep(0.1)
 
     def teach(self):
         if (self.teachCommandsFile == None):

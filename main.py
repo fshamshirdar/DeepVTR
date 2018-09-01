@@ -8,13 +8,15 @@ import math
 import matplotlib.pyplot as plt
 import torch
 
-from data_collector import DataCollector
+from airsim_data_collector import AirSimDataCollector
+from vizdoom_data_collector import VizDoomDataCollector
 from agent import Agent
 from dqn_agent import DQNAgent
 from dqn_agent_single import DQNAgentSingle
 from airsim_agent import AirSimAgent
 from vizdoom_agent import VizDoomAgent
 from multi_vizdoom_agent import MultiVizDoomAgent
+from multi_airsim_agent import MultiAirSimAgent
 # from bebop_agent import BebopAgent
 # from pioneer_agent import PioneerAgent
 from place_recognition import PlaceRecognition
@@ -25,7 +27,7 @@ import constants
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='')
 
-    parser.add_argument('--mode', default='train', type=str, help='support option: airsim_collect/train_place/train_nav/eval_place/eval_nav/test_nav/train_placenav/eval_placenav/dqn_agent/dqn_agent_single/airsim_agent/bebop_agent/pioneer_agent/vizdoom_agent/multi_vizdoom_agent')
+    parser.add_argument('--mode', default='train', type=str, help='support option: airsim_collect/vizdoom_collect/train_place/train_nav/eval_place/eval_nav/test_nav/train_placenav/eval_placenav/dqn_agent/dqn_agent_single/airsim_agent/bebop_agent/pioneer_agent/vizdoom_agent/multi_vizdoom_agent/multi_airsim_agent')
     parser.add_argument('--datapath', default='dataset', type=str, help='path to dataset')
     parser.add_argument('--env', default='Pendulum-v0', type=str, help='open-ai gym environment')
     parser.add_argument('--collect_index', default=0, type=int, help='collect intial index')
@@ -62,7 +64,10 @@ if __name__ == "__main__":
     use_cuda = torch.cuda.is_available()
     use_cuda = False
     if args.mode == 'airsim_collect':
-        dataCollector = DataCollector(args.datapath)
+        dataCollector = AirSimDataCollector(args.datapath)
+        dataCollector.collect(args.collect_index)
+    if args.mode == 'vizdoom_collect':
+        dataCollector = VizDoomDataCollector(args.datapath, args.wad)
         dataCollector.collect(args.collect_index)
     elif args.mode == 'train_place':
         placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
@@ -120,7 +125,12 @@ if __name__ == "__main__":
     elif args.mode == 'multi_vizdoom_agent':
         placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
         navigation = Navigation(args.navigation_checkpoint, use_cuda)
-        multiVizDoomAgent = MultiVizDoomAgent(placeRecognition, navigation, args.wad, teachCommandsFile=args.teach_dump)
+        multiVizDoomAgent = MultiVizDoomAgent(placeRecognition, navigation, args.wad)
         multiVizDoomAgent.run()
+    elif args.mode == 'multi_airsim_agent':
+        placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
+        navigation = Navigation(args.navigation_checkpoint, use_cuda)
+        multiAirSimAgent = MultiAirSimAgent(placeRecognition, navigation)
+        multiAirSimAgent.run()
     else:
         pass
