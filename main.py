@@ -55,6 +55,7 @@ if __name__ == "__main__":
     parser.add_argument('--place_checkpoint', type=str, help='Place Checkpoint path')
     parser.add_argument('--navigation_checkpoint', type=str, help='Navigation Checkpoint path')
     parser.add_argument('--placenav_checkpoint', type=str, help='PlaceNav Checkpoint path')
+    parser.add_argument('--online_learning', dest='online_learning', action='store_true')
     parser.add_argument('--teach_dump', type=str, help='Teach dump commands file')
     parser.add_argument('--wad', type=str, default='vizdoom/Train/D3_battle_navigation_split.wad_manymaps_test.wad', help='WAD path')
     parser.add_argument('--dump_memory_path', type=str, help='Dump memory path')
@@ -70,7 +71,7 @@ if __name__ == "__main__":
         dataCollector.collect(args.collect_index)
     elif args.mode == 'train_place':
         placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
-        placeRecognition.train(args.datapath, args.checkpoint_path, args.train_iter)
+        placeRecognition.train(args.datapath, args.checkpoint_path, args.train_iter, args.online_learning)
     elif args.mode == 'eval_place':
         placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
         placeRecognition.eval(args.datapath)

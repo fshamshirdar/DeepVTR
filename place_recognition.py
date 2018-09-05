@@ -17,6 +17,7 @@ from placenet import PlaceNet
 from tripletnet import TripletNet
 from siamesenet import SiameseNet
 from dataset import RecordedAirSimDataLoader
+from dataset import OnlineVizDoomDataLoader
 import constants
 
 class Replicate(nn.Module):
@@ -107,9 +108,12 @@ class PlaceRecognition:
            similarity_score = similarity_score[0]
         return similarity_score
 
-    def train(self, datapath, checkpoint_path, train_iterations):
+    def train(self, datapath, checkpoint_path, train_iterations, online_learning=False):
         if (constants.PLACE_TOP_SIAMESE):
-            return self.train_siamese(datapath, checkpoint_path, train_iterations)
+            if (online_learning):
+                return self.train_siamese_online(constants.VIZDOOM_DEFAULT_WAD, checkpoint_path, train_iterations)
+            else:
+                return self.train_siamese(datapath, checkpoint_path, train_iterations)
         else:
             return self.train_triplet(datapath, checkpoint_path, train_iterations)
 
@@ -358,6 +362,96 @@ class PlaceRecognition:
 
         epoch_acc = (float(running_corrects) / float(len(data_loaders[phase].dataset))) * 100.0
         print('Accuracy: {}'.format(epoch_acc))
+
+    def train_siamese_online(self, wad, checkpoint_path, train_iterations):
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.SGD(list(filter(lambda p: p.requires_grad, self.siamesenet.parameters())), lr=constants.TRAINING_PLACE_LR, momentum=constants.TRAINING_PLACE_MOMENTUM)
+        exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=constants.TRAINING_PLACE_LR_SCHEDULER_SIZE, gamma=constants.TRAINING_PLACE_LR_SCHEDULER_GAMMA)
+ 
+        kwargs = {'num_workers': 8, 'pin_memory': True} if torch.cuda.is_available() else {}
+        train_dataset = OnlineVizDoomDataLoader(wad, locomotion=False, transform=self.array_preprocess)
+        val_dataset = OnlineVizDoomDataLoader(wad, locomotion=False, transform=self.array_preprocess)
+        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=constants.TRAINING_PLACE_BATCH, shuffle=True, **kwargs)
+        val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=constants.TRAINING_PLACE_BATCH, shuffle=True, **kwargs)
+        data_loaders = { 'train': train_loader, 'val': val_loader }
+
+        since = time.time()
+
+        best_model_wts = self.siamesenet.state_dict()
+        best_acc = 0.0
+
+        for epoch in range(train_iterations):
+            train_dataset.collect()
+            val_dataset.collect()
+
+            print('Epoch {}/{}'.format(epoch, train_iterations - 1))
+            print('-' * 10)
+
+            # Each epoch has a training and validation phase
+            for phase in ['train', 'val']:
+                if phase == 'train':
+                    exp_lr_scheduler.step()
+                    self.siamesenet.train(True)  # Set model to training mode
+                else:
+                    self.siamesenet.train(False)  # Set model to evaluate mode
+
+                running_loss = 0.0
+                running_corrects = 0
+
+                # Iterate over data.
+                for data in tqdm(data_loaders[phase]):
+                    # get the inputs
+                    anchors, pairs, labels = data
+
+                    # wrap them in Variable
+                    if self.use_cuda:
+                        anchors = Variable(anchors.cuda())
+                        pairs = Variable(pairs.cuda())
+                        labels = Variable(labels.cuda())
+                    else:
+                        anchors, pairs, labels = Variable(anchors), Variable(pairs), Variable(labels)
+
+                    # zero the parameter gradients
+                    optimizer.zero_grad()
+
+                    # forward
+                    outputs = self.siamesenet(anchors, pairs)
+                    if type(outputs) == tuple:
+                        outputs, _ = outputs
+                    _, preds = torch.max(outputs.data, 1)
+                    loss = criterion(outputs, labels)
+
+                    # backward + optimize only if in training phase
+                    if phase == 'train':
+                        loss.backward()
+                        optimizer.step()
+
+                    # statistics
+                    running_loss += loss.item()
+                    running_corrects += torch.sum(preds == labels.data)
+
+                epoch_loss = (float(running_loss) / float(len(data_loaders[phase].dataset))) * 100.0
+                epoch_acc = (float(running_corrects) / float(len(data_loaders[phase].dataset))) * 100.0
+
+                print('{} Loss: {:.4f} Acc: {:.4f}'.format(
+                    phase, epoch_loss, epoch_acc))
+
+                # deep copy the model
+                if phase == 'val' and epoch_acc > best_acc:
+                    best_acc = epoch_acc
+                    best_model_wts = self.siamesenet.state_dict()
+                    print (checkpoint_path, epoch)
+                    self.save_model(checkpoint_path, epoch)
+
+            print()
+
+        time_elapsed = time.time() - since
+        print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
+        print('Best val Acc: {:4f}'.format(best_acc))
+
+        # load best model weights
+        self.siamesenet.load_state_dict(best_model_wts)
+        return self.siamesenet
 
     def save_model(self, checkpoint_path, epoch):
         print ("Saving a new checkpoint on epoch {}".format(epoch+1))
