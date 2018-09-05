@@ -37,7 +37,7 @@ class CVAirSimClient(MultirotorClient):
  
             self.pose[0] -= vx
             self.pose[1] -= vy
-        elif action == 0:
+        elif action == constants.ACTION_MOVE_FORWARD:
             if (self.mode == constants.AIRSIM_MODE_DATA_COLLECTION):
                 speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
             elif (self.mode == constants.AIRSIM_MODE_TEACH):
@@ -51,7 +51,7 @@ class CVAirSimClient(MultirotorClient):
  
             self.pose[0] += vx
             self.pose[1] += vy
-        elif action == 1:
+        elif action == constants.ACTION_TURN_RIGHT:
             if (self.mode == constants.AIRSIM_MODE_DATA_COLLECTION):
                 angle = random.uniform(constants.DATA_COLLECTION_MIN_ANGLE, constants.DATA_COLLECTION_MAX_ANGLE)
             elif (self.mode == constants.AIRSIM_MODE_TEACH):
@@ -61,7 +61,7 @@ class CVAirSimClient(MultirotorClient):
                 angle = constants.AIRSIM_YAW_SPEED
 
             self.orientation[2] += angle
-        elif action == 2:
+        elif action == constants.ACTION_TURN_LEFT:
             if (self.mode == constants.AIRSIM_MODE_DATA_COLLECTION):
                 angle = random.uniform(constants.DATA_COLLECTION_MIN_ANGLE, constants.DATA_COLLECTION_MAX_ANGLE)
             elif (self.mode == constants.AIRSIM_MODE_TEACH):
@@ -72,7 +72,7 @@ class CVAirSimClient(MultirotorClient):
                 angle = constants.AIRSIM_YAW_SPEED
 
             self.orientation[2] -= angle 
-        elif action == 4: # right
+        elif action == constatns.ACTION_MOVE_RIGHT: # right
             if (self.mode == constants.AIRSIM_MODE_DATA_COLLECTION):
                 speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
             elif (self.mode == constants.AIRSIM_MODE_TEACH):
@@ -85,7 +85,7 @@ class CVAirSimClient(MultirotorClient):
  
             self.pose[0] -= vx
             self.pose[1] += vy
-        elif action == 5: # left
+        elif action == constants.ACTION_MOVE_LEFT: # left
             if (self.mode == constants.AIRSIM_MODE_DATA_COLLECTION):
                 speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
             elif (self.mode == constants.AIRSIM_MODE_TEACH):
@@ -98,7 +98,7 @@ class CVAirSimClient(MultirotorClient):
  
             self.pose[0] += vx
             self.pose[1] -= vy
-        elif action == 3: # backward
+        elif action == constants.ACTION_MOVE_BACKWARD: # backward
             if (self.mode == constants.AIRSIM_MODE_DATA_COLLECTION):
                 speed = random.uniform(constants.DATA_COLLECTION_MIN_SPEED, constants.DATA_COLLECTION_MAX_SPEED)
             elif (self.mode == constants.AIRSIM_MODE_TEACH):

@@ -67,18 +67,18 @@ class RecordedAirSimDataLoader(torch.utils.data.Dataset):
             if (future_action not in permitted_actions):
                 future_index -= 1
                 break
-            if (future_action == 0 and 5 in permitted_actions):
-                permitted_actions.remove(5)
-            elif (future_action == 5 and 0 in permitted_actions):
-                permitted_actions.remove(0)
-            elif (future_action == 1 and 2 in permitted_actions):
-                permitted_actions.remove(2)
-            elif (future_action == 2 and 1 in permitted_actions):
-                permitted_actions.remove(1)
-            elif (future_action == 3 and 4 in permitted_actions):
-                permitted_actions.remove(4)
-            elif (future_action == 4 and 3 in permitted_actions):
-                permitted_actions.remove(3)
+            if (future_action == constants.ACTION_MOVE_FORWARD and constants.ACTION_MOVE_BACKWARD in permitted_actions):
+                permitted_actions.remove(constants.ACTION_MOVE_BACKWARD)
+            elif (future_action == constants.ACTION_MOVE_BACKWARD and constants.ACTION_MOVE_FORWARD in permitted_actions):
+                permitted_actions.remove(constants.ACTION_MOVE_FORWARD)
+            elif (future_action == constants.ACTION_TURN_RIGHT and constants.ACTION_TURN_LEFT in permitted_actions):
+                permitted_actions.remove(constants.ACTION_TURN_LEFT)
+            elif (future_action == constants.ACTION_TURN_LEFT and constants.ACTION_TURN_RIGHT in permitted_actions):
+                permitted_actions.remove(constants.ACTION_TURN_RIGHT)
+            elif (future_action == constants.ACTION_MOVE_RIGHT and constants.ACTION_MOVE_LEFT in permitted_actions):
+                permitted_actions.remove(constants.ACTION_MOVE_LEFT)
+            elif (future_action == constants.ACTION_MOVE_LEFT and constants.ACTION_MOVE_RIGHT in permitted_actions):
+                permitted_actions.remove(constants.ACTION_MOVE_RIGHT)
 
         previous_index = index - 1
         if previous_index < 0:
