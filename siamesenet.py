@@ -23,9 +23,13 @@ class SiameseNet(nn.Module):
 
         self.fc4 = nn.Linear(in_features=1024, out_features=2)
         
-    def forward(self, x1, x2):
-        embedded_x1 = self.embeddingnet(x1)
-        embedded_x2 = self.embeddingnet(x2)
+    def forward(self, x1, x2, embedding_required=True):
+        if (embedding_required):
+            embedded_x1 = self.embeddingnet(x1)
+            embedded_x2 = self.embeddingnet(x2)
+        else:
+            embedded_x1 = x1
+            embedded_x2 = x2
 
         x = torch.cat([embedded_x1, embedded_x2], dim=1) # dim should be 1, why doesn't work?
         x = self.bn0(x)
