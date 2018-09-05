@@ -77,7 +77,7 @@ if __name__ == "__main__":
         placeRecognition.eval(args.datapath)
     elif args.mode == 'train_nav':
         navigation = Navigation(args.navigation_checkpoint, use_cuda)
-        navigation.train(args.datapath, args.checkpoint_path, args.train_iter)
+        navigation.train(args.datapath, args.checkpoint_path, args.train_iter, args.online_learning)
     elif args.mode == 'eval_nav':
         navigation = Navigation(args.navigation_checkpoint, use_cuda)
         navigation.eval(args.datapath)

@@ -235,7 +235,7 @@ class OnlineVizDoomDataLoader(torch.utils.data.Dataset):
         else:
             return self.getPlaceItem(index)
 
-    def getLocomotionItem(self, round_index, index):
+    def getLocomotionItem(self, index):
         action = self.actions[index]
 
         future_addition_index = random.randint(1, constants.DATASET_MAX_ACTION_DISTANCE)
