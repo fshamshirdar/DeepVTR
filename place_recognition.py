@@ -108,9 +108,9 @@ class PlaceRecognition:
            similarity_score = similarity_score[0]
         return similarity_score
 
-    def train(self, datapath, checkpoint_path, train_iterations, online_learning=False):
+    def train(self, datapath, checkpoint_path, train_iterations, online_training=False):
         if (constants.PLACE_TOP_SIAMESE):
-            if (online_learning):
+            if (online_training):
                 return self.train_siamese_online(constants.VIZDOOM_DEFAULT_WAD, checkpoint_path, train_iterations)
             else:
                 return self.train_siamese(datapath, checkpoint_path, train_iterations)

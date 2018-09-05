@@ -116,8 +116,8 @@ class Navigation:
         return self.model
     """
 
-    def train(self, datapath, checkpoint_path, train_iterations, online_learning=False):
-        if (online_learning):
+    def train(self, datapath, checkpoint_path, train_iterations, online_training=False):
+        if (online_training):
             return self.train_online(constants.VIZDOOM_DEFAULT_WAD, checkpoint_path, train_iterations)
         else:
             return self.train_on_dataset(datapath, checkpoint_path, train_iterations)
