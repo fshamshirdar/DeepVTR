@@ -95,6 +95,7 @@ class VizDoomSingleAgent:
         if (index == -1): # or random.random() < constants.MULTI_AGENT_RANDOM_MOVEMENT_CHANCE):
             # action = random.choice([0, 0, 0, 0, 1, 2, 3, 4, 5])
             if (self.cycle % 5 == 0):
+                # action = random.randint(0, constants.LOCO_NUM_CLASSES-1)
                 permitted_actions = [i for i in range(0, constants.LOCO_NUM_CLASSES)]
                 if (self.previous_action == constants.ACTION_MOVE_FORWARD and constants.ACTION_MOVE_BACKWARD in permitted_actions):
                     permitted_actions.remove(constants.ACTION_MOVE_BACKWARD)
@@ -108,39 +109,28 @@ class VizDoomSingleAgent:
                     permitted_actions.remove(constants.ACTION_MOVE_LEFT)
                 elif (self.previous_action == constants.ACTION_MOVE_LEFT and constants.ACTION_MOVE_RIGHT in permitted_actions):
                     permitted_actions.remove(constants.ACTION_MOVE_RIGHT)
-
-                # action = random.randint(0, constants.LOCO_NUM_CLASSES-1)
                 action = random.choice(permitted_actions)
             elif (self.cycle % 5 == 3):
                 action = 0
             else:
                 action = self.previous_action
-
-            if (left_dist < 5):
-                # print ('left: ', left_dist)
-                action = 1
-            elif (right_dist < 5): 
-                # print ('right: ', right_dist)
-                action = 2
-
             # wait()
         else:
             # if (index+1 >= self.trail.len()):
             #     future_state = self.trail.waypoints[index].state
             # else:
             #     future_state = self.trail.waypoints[index+1].state
-            # future_state = self.trail.waypoints[index].state
             future_state = self.trail.waypoints[index].state
             actions = self.navigation.forward(self.current_state, self.trail.waypoints[index].state, future_state)
             actions = torch.squeeze(actions)
             sorted_actions, indices = torch.sort(actions, descending=True)
             action = indices[0]
-            if ((self.previous_action == 0 and action == 3) or
-                (self.previous_action == 3 and action == 0) or
-                (self.previous_action == 1 and action == 2) or
-                (self.previous_action == 2 and action == 1) or
-                (self.previous_action == 4 and action == 5) or
-                (self.previous_action == 5 and action == 4)):
+            if ((self.previous_action == constants.ACTION_MOVE_FORWARD and action == constants.ACTION_MOVE_BACKWARD) or
+                (self.previous_action == constants.ACTION_MOVE_BACKWARD and action == constants.ACTION_MOVE_FORWARD) or
+                (self.previous_action == constants.ACTION_TURN_RIGHT and action == constants.ACTION_TURN_LEFT) or
+                (self.previous_action == constants.ACTION_TURN_LEFT and action == constants.ACTION_TURN_RIGHT) or
+                (self.previous_action == constants.ACTION_MOVE_RIGHT and action == constants.ACTION_MOVE_LEFT) or
+                (self.previous_action == constants.ACTION_MOVE_LEFT and action == constants.ACTION_MOVE_RIGHT)):
                 action = indices[1]
             print ("matched: ", index, score, actions)
 
@@ -149,7 +139,13 @@ class VizDoomSingleAgent:
             future_image = Image.fromarray(future_state)
             # current_image.save("current.png", "PNG")
             future_image.save("future.png", "PNG")
+            time.sleep(0.1)
             # wait()
+
+        if (left_dist < 5):
+            action = constants.ACTION_TURN_RIGHT
+        elif (right_dist < 5): 
+            action = constants.ACTION_TURN_LEFT
 
         next_state = self.step(action, repeat=2)
 

@@ -98,8 +98,12 @@ class RecordedAirSimDataLoader(torch.utils.data.Dataset):
         return state, action
 
     def getPlaceItem(self, round_index, index):
-        action = self.actions[round_index][index]
+        if (constants.PLACE_TOP_MODEL == constants.PLACE_TOP_TRIPLET):
+            return self.getPlaceTripletItem(round_index, index)
+        else: # siamese
+            return self.getPlaceSiameseItem(round_index, index)
 
+    def getPlaceTripletItem(self, round_index, index):
         positive_addition_index = random.randint(1, constants.DATASET_MAX_ACTION_DISTANCE)
         positive_index = index + positive_addition_index
         if positive_index >= len(self.actions[round_index]):
@@ -125,6 +129,36 @@ class RecordedAirSimDataLoader(torch.utils.data.Dataset):
             negative = self.transform(negative)
 
         return anchor, positive, negative
+
+    def getPlaceSiameseItem(self, round_index, index):
+        if (random.random() < 0.5): # positive
+            class_value = 1
+            positive_addition_index = random.randint(1, constants.DATASET_MAX_ACTION_DISTANCE)
+            pair_index = index + positive_addition_index
+            if pair_index >= len(self.actions[round_index]):
+                pair_index = index + 1
+        else: # negative
+            class_value = 0
+            # negative_index = random.randint(1, self.size-1)
+            negative_index_ahead = index + random.randint(constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MIN_INDEX, constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MAX_INDEX)
+            negative_index_behind = index - random.randint(constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MIN_INDEX, constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MAX_INDEX)
+            if negative_index_ahead >= len(self.actions[round_index]):
+                pair_index = negative_index_behind
+            elif negative_index_behind < 0:
+                pair_index = negative_index_ahead
+            elif random.random() < 0.5:
+                pair_index = negative_index_behind
+            else:
+                pair_index = negative_index_ahead
+
+        anchor = self.loader(os.path.join(self.base_path, self.indexes[round_index], str(index)+".png"))
+        pair = self.loader(os.path.join(self.base_path, self.indexes[round_index], str(pair_index)+".png"))
+        if self.transform is not None:
+            anchor = self.transform(anchor)
+            pair = self.transform(pair)
+
+        state = np.concatenate([anchor, pair], axis=0)
+        return state, class_value
 
     def __len__(self):
         return self.size

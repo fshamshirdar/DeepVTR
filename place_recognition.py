@@ -15,6 +15,7 @@ from sklearn.metrics import accuracy_score
 
 from placenet import PlaceNet
 from tripletnet import TripletNet
+from siamesenet import SiameseNet
 from dataset import RecordedAirSimDataLoader
 import constants
 
@@ -34,8 +35,9 @@ class PlaceRecognition:
                 std=[1 / 255., 1 / 255., 1 / 255.]
             )
         elif (constants.PLACE_NETWORK == constants.PLACE_NETWORK_RESNET18):
-            self.model = models.resnet18()
-            self.model.fc = Replicate()
+            kwargs = {'num_classes': 512}
+            self.model = models.resnet18(**kwargs)
+            # self.model.fc = Replicate()
             self.normalize = transforms.Normalize(
                 mean = [0.5, 0.5, 0.5],
                 std = [0.5, 0.5, 0.5]
@@ -43,9 +45,10 @@ class PlaceRecognition:
         else:
             print ("Place network is not valid!")
 
-#        if (constants.PLACE_TOP_SIAMESE):
-#            self.topnet = SiameseNet(self.model)
-        self.tripletnet = TripletNet(self.model)
+        if (constants.PLACE_TOP_SIAMESE):
+            self.siamesenet = SiameseNet(self.model)
+        else:
+            self.tripletnet = TripletNet(self.model)
 
         self.preprocess = transforms.Compose([
             transforms.Resize(constants.TRAINING_PLACE_IMAGE_SCALE),
@@ -92,6 +95,18 @@ class PlaceRecognition:
         return similarity_score[0]
 
     def train(self, datapath, checkpoint_path, train_iterations):
+        if (constants.PLACE_TOP_SIAMESE):
+            return self.train_siamese(datapath, checkpoint_path, train_iterations)
+        else:
+            return self.train_triplet(datapath, checkpoint_path, train_iterations)
+
+    def eval(self, datapath):
+        if (constants.PLACE_TOP_SIAMESE):
+            return self.eval_siamese(datapath, checkpoint_path, train_iterations)
+        else:
+            return self.eval_triplet(datapath, checkpoint_path, train_iterations)
+
+    def train_triplet(self, datapath, checkpoint_path, train_iterations):
         # criterion = nn.CrossEntropyLoss()
         criterion = torch.nn.MarginRankingLoss(margin=constants.TRAINING_PLACE_MARGIN)
         optimizer = optim.SGD(list(filter(lambda p: p.requires_grad, self.tripletnet.parameters())), lr=constants.TRAINING_PLACE_LR, momentum=constants.TRAINING_PLACE_MOMENTUM)
@@ -183,15 +198,7 @@ class PlaceRecognition:
         self.model.load_state_dict(best_model_wts)
         return self.model
 
-    def save_model(self, checkpoint_path, epoch):
-        print ("Saving a new checkpoint on epoch {}".format(epoch+1))
-        state = {
-            'epoch': epoch + 1,
-            'state_dict': self.model.state_dict(),
-        }
-        torch.save(state, os.path.join(checkpoint_path, "place_checkpoint_{}.pth".format(epoch)))
-
-    def eval(self, datapath):
+    def eval_triplet(self, datapath):
         kwargs = {'num_workers': 8, 'pin_memory': True} if torch.cuda.is_available() else {}
         data_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader(datapath, locomotion=False, transform=self.preprocess, validation=True), batch_size=constants.TRAINING_PLACE_BATCH, shuffle=True, **kwargs)
         criterion = torch.nn.MarginRankingLoss(margin=constants.TRAINING_PLACE_MARGIN)
@@ -229,3 +236,124 @@ class PlaceRecognition:
         epoch_loss = (float(running_loss) / float(len(data_loaders[phase].dataset))) * 100.0
         epoch_acc = (float(running_corrects) / float(len(data_loaders[phase].dataset))) * 100.0
         print('Loss: {:.4f} Acc: {:.4f}'.format(epoch_loss, epoch_acc))
+
+    def train_siamese(self, datapath, checkpoint_path, train_iterations):
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.SGD(list(filter(lambda p: p.requires_grad, self.siamesenet.parameters())), lr=constants.TRAINING_PLACE_LR, momentum=constants.TRAINING_PLACE_MOMENTUM)
+        exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=constants.TRAINING_PLACE_LR_SCHEDULER_SIZE, gamma=constants.TRAINING_PLACE_LR_SCHEDULER_GAMMA)
+ 
+        kwargs = {'num_workers': 8, 'pin_memory': True} if torch.cuda.is_available() else {}
+        train_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader(datapath, locomotion=False, transform=self.preprocess), batch_size=constants.TRAINING_PLACE_BATCH, shuffle=True, **kwargs)
+        val_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader(datapath, locomotion=False, transform=self.preprocess, validation=True), batch_size=constants.TRAINING_PLACE_BATCH, shuffle=True, **kwargs)
+        data_loaders = { 'train': train_loader, 'val': val_loader }
+
+        since = time.time()
+
+        best_model_wts = self.siamesenet.state_dict()
+        best_acc = 0.0
+
+        for epoch in range(train_iterations):
+            print('Epoch {}/{}'.format(epoch, train_iterations - 1))
+            print('-' * 10)
+
+            # Each epoch has a training and validation phase
+            for phase in ['train', 'val']:
+                if phase == 'train':
+                    exp_lr_scheduler.step()
+                    self.siamesenet.train(True)  # Set model to training mode
+                else:
+                    self.siamesenet.train(False)  # Set model to evaluate mode
+
+                running_loss = 0.0
+                running_corrects = 0
+
+                # Iterate over data.
+                for data in tqdm(data_loaders[phase]):
+                    # get the inputs
+                    inputs, labels = data
+
+                    # wrap them in Variable
+                    if self.use_cuda:
+                        inputs = Variable(inputs.cuda())
+                        labels = Variable(labels.cuda())
+                    else:
+                        inputs, labels = Variable(inputs), Variable(labels)
+
+                    # zero the parameter gradients
+                    optimizer.zero_grad()
+
+                    # forward
+                    outputs = self.siamesenet(inputs)
+                    if type(outputs) == tuple:
+                        outputs, _ = outputs
+                    _, preds = torch.max(outputs.data, 1)
+                    loss = criterion(outputs, labels)
+
+                    # backward + optimize only if in training phase
+                    if phase == 'train':
+                        loss.backward()
+                        optimizer.step()
+
+                    # statistics
+                    running_loss += loss.item()
+                    running_corrects += torch.sum(preds == labels.data)
+
+                epoch_loss = (float(running_loss) / float(len(data_loaders[phase].dataset))) * 100.0
+                epoch_acc = (float(running_corrects) / float(len(data_loaders[phase].dataset))) * 100.0
+
+                print('{} Loss: {:.4f} Acc: {:.4f}'.format(
+                    phase, epoch_loss, epoch_acc))
+
+                # deep copy the model
+                if phase == 'val' and epoch_acc > best_acc:
+                    best_acc = epoch_acc
+                    best_model_wts = self.siamesenet.state_dict()
+                    print (checkpoint_path, epoch)
+                    self.save_model(checkpoint_path, epoch)
+
+            print()
+
+        time_elapsed = time.time() - since
+        print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
+        print('Best val Acc: {:4f}'.format(best_acc))
+
+        # load best model weights
+        self.siamesenet.load_state_dict(best_model_wts)
+        return self.siamesenet
+
+    def eval_siamese(self, datapath):
+        kwargs = {'num_workers': 8, 'pin_memory': True} if torch.cuda.is_available() else {}
+        data_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader(datapath, locomotion=False, transform=self.preprocess, validation=True), batch_size=constants.TRAINING_PLACE_BATCH, shuffle=True, **kwargs)
+
+        running_corrects = 0
+        for data in tqdm(data_loader):
+           inputs, labels = data
+
+            # wrap them in Variable
+            if self.use_cuda:
+                inputs = Variable(inputs.cuda())
+                labels = Variable(labels.cuda())
+            else:
+                inputs, labels = Variable(inputs), Variable(labels)
+
+            outputs = self.siamesenet(inputs)
+            if type(outputs) == tuple:
+                outputs, _ = outputs
+            _, preds = torch.max(outputs.data, 1)
+            running_corrects += torch.sum(preds == labels.data)
+
+        epoch_acc = (float(running_corrects) / float(len(data_loaders[phase].dataset))) * 100.0
+        print('Accuracy: {}'.format(epoch_acc))
+
+    def save_model(self, checkpoint_path, epoch):
+        print ("Saving a new checkpoint on epoch {}".format(epoch+1))
+        state = {
+            'epoch': epoch + 1,
+            'state_dict': self.model.state_dict(),
+        }
+        if (constants.PLACE_TOP_MODEL == constants.PLACE_TOP_SIAMESE):
+            top_network_name = 'siamese'
+        else: # triplet
+            top_network_name = 'triplet' 
+        model_name = 'place_{}_checkpoint_{}.pth'.format(top_network_name, epoch)
+        torch.save(state, os.path.join(checkpoint_path, model_name)
