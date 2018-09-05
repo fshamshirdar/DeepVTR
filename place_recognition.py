@@ -36,6 +36,7 @@ class PlaceRecognition:
             )
         elif (constants.PLACE_NETWORK == constants.PLACE_NETWORK_RESNET18):
             kwargs = {'num_classes': 512}
+            # kwargs = {}
             self.model = models.resnet18(**kwargs)
             # self.model.fc = Replicate()
             self.normalize = transforms.Normalize(
@@ -78,6 +79,10 @@ class PlaceRecognition:
 
     def cuda(self):
         self.model.cuda()
+        if (constants.PLACE_TOP_SIAMESE):
+            self.siamesenet.cuda()
+        else:
+            self.tripletnet.cuda()
 
     def forward(self, input, flatten=True):
         if (isinstance(input, (np.ndarray, np.generic))):
@@ -270,20 +275,21 @@ class PlaceRecognition:
                 # Iterate over data.
                 for data in tqdm(data_loaders[phase]):
                     # get the inputs
-                    inputs, labels = data
+                    anchors, pairs, labels = data
 
                     # wrap them in Variable
                     if self.use_cuda:
-                        inputs = Variable(inputs.cuda())
+                        anchors = Variable(anchors.cuda())
+                        pairs = Variable(pairs.cuda())
                         labels = Variable(labels.cuda())
                     else:
-                        inputs, labels = Variable(inputs), Variable(labels)
+                        anchors, pairs, labels = Variable(anchors), Variable(pairs), Variable(labels)
 
                     # zero the parameter gradients
                     optimizer.zero_grad()
 
                     # forward
-                    outputs = self.siamesenet(inputs)
+                    outputs = self.siamesenet(anchors, pairs)
                     if type(outputs) == tuple:
                         outputs, _ = outputs
                     _, preds = torch.max(outputs.data, 1)
@@ -327,16 +333,16 @@ class PlaceRecognition:
 
         running_corrects = 0
         for data in tqdm(data_loader):
-           inputs, labels = data
+            anchors, pairs, labels = data
 
-            # wrap them in Variable
             if self.use_cuda:
-                inputs = Variable(inputs.cuda())
+                anchors = Variable(anchors.cuda())
+                pairs = Variable(pairs.cuda())
                 labels = Variable(labels.cuda())
             else:
-                inputs, labels = Variable(inputs), Variable(labels)
+                anchors, pairs, labels = Variable(anchors), Variable(pairs), Variable(labels)
 
-            outputs = self.siamesenet(inputs)
+            outputs = self.siamesenet(anchors, pairs)
             if type(outputs) == tuple:
                 outputs, _ = outputs
             _, preds = torch.max(outputs.data, 1)
@@ -356,4 +362,4 @@ class PlaceRecognition:
         else: # triplet
             top_network_name = 'triplet' 
         model_name = 'place_{}_checkpoint_{}.pth'.format(top_network_name, epoch)
-        torch.save(state, os.path.join(checkpoint_path, model_name)
+        torch.save(state, os.path.join(checkpoint_path, model_name))

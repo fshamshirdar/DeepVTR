@@ -157,8 +157,8 @@ class RecordedAirSimDataLoader(torch.utils.data.Dataset):
             anchor = self.transform(anchor)
             pair = self.transform(pair)
 
-        state = np.concatenate([anchor, pair], axis=0)
-        return state, class_value
+        # state = np.concatenate([anchor, pair], axis=0)
+        return anchor, pair, class_value
 
     def __len__(self):
         return self.size

@@ -42,5 +42,5 @@ class SiameseNet(nn.Module):
         x = self.bn3(x)
         x = self.relu3(x)
 
-        x = fc4(x)
+        x = self.fc4(x)
         return x
