@@ -213,12 +213,14 @@ class OnlineVizDoomDataLoader(torch.utils.data.Dataset):
         state = self.step(action)
         return state, action, False
 
-    def collect(self):
+    def collect(self, size=1000):
+        self.states = []
+        self.actions = []
         current_state = self.reset_map()
         for i in range(5): # needed for skipping first outliers
             current_state, _, _ = self.random_walk()
 
-        for i in range(constants.DATA_COLLECTION_PLAYING_ROUNG_LENGTH):
+        for i in range(size):
             future_state, action, done = self.random_walk()
             if (done == True):
                 break
@@ -239,10 +241,11 @@ class OnlineVizDoomDataLoader(torch.utils.data.Dataset):
         action = self.actions[index]
 
         future_addition_index = random.randint(1, constants.DATASET_MAX_ACTION_DISTANCE)
-        #future_index = index + future_addition_index
-        #if future_index >= len(self.actions):
-        #    future_index = index + 1
+        future_index = index + future_addition_index
+        if future_index >= len(self.actions)-2:
+            future_index = index + 1
 
+        """
         permitted_actions = [i for i in range(0, constants.LOCO_NUM_CLASSES)]
         for i in range(1, future_addition_index+1):
             future_index = index + i
@@ -265,6 +268,7 @@ class OnlineVizDoomDataLoader(torch.utils.data.Dataset):
                 permitted_actions.remove(constants.ACTION_MOVE_LEFT)
             elif (future_action == constants.ACTION_MOVE_LEFT and constants.ACTION_MOVE_RIGHT in permitted_actions):
                 permitted_actions.remove(constants.ACTION_MOVE_RIGHT)
+        """
 
         previous_index = index - 1
         if previous_index < 0:
@@ -294,16 +298,23 @@ class OnlineVizDoomDataLoader(torch.utils.data.Dataset):
         if positive_index >= len(self.actions):
             positive_index = index + 1
         # negative_index = random.randint(1, self.size-1)
-        negative_index_ahead = index + random.randint(constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MIN_INDEX, constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MAX_INDEX)
-        negative_index_behind = index - random.randint(constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MIN_INDEX, constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MAX_INDEX)
-        if negative_index_ahead >= len(self.actions):
-            negative_index = negative_index_behind
-        elif negative_index_behind < 0:
-            negative_index = negative_index_ahead
-        elif random.random() < 0.5:
-            negative_index = negative_index_behind
+        negative_ahead = None
+        negative_behind = None
+        negative_index_ahead = index + constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MULTIPLIER * constants.MAX_ACTION_DISTANCE
+        negative_index_behind = index - constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MULTIPLIER * constants.MAX_ACTION_DISTANCE
+        if negative_index_ahead < len(self.actions):
+            negative_ahead = random.randint(negative_index_ahead, len(self.actions))
+        if negative_index_behind >= 0:
+            negative_behind = random.randint(0, negative_index_behind)
+        if negative_ahead is None:
+            negative_index = negative_behind
+        elif negative_behind is None:
+            negative_index = negative_ahead
         else:
-            negative_index = negative_index_ahead
+            if random.random() < 0.5:
+                negative_index = negative_behind
+            else:
+                negative_index = negative_ahead
 
         anchor = self.states[index]
         positive = self.states[positive_index]
@@ -320,21 +331,28 @@ class OnlineVizDoomDataLoader(torch.utils.data.Dataset):
             class_value = 1
             positive_addition_index = random.randint(1, constants.DATASET_MAX_ACTION_DISTANCE)
             pair_index = index + positive_addition_index
-            if pair_index >= len(self.actions):
+            if pair_index >= len(self.actions)-2:
                 pair_index = index + 1
         else: # negative
             class_value = 0
             # negative_index = random.randint(1, self.size-1)
-            negative_index_ahead = index + random.randint(constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MIN_INDEX, constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MAX_INDEX)
-            negative_index_behind = index - random.randint(constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MIN_INDEX, constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MAX_INDEX)
-            if negative_index_ahead >= len(self.actions):
-                pair_index = negative_index_behind
-            elif negative_index_behind < 0:
-                pair_index = negative_index_ahead
-            elif random.random() < 0.5:
-                pair_index = negative_index_behind
+            negative_ahead = None
+            negative_behind = None
+            negative_index_ahead = index + constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MULTIPLIER * constants.DATASET_MAX_ACTION_DISTANCE
+            negative_index_behind = index - constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MULTIPLIER * constants.DATASET_MAX_ACTION_DISTANCE
+            if negative_index_ahead < len(self.actions):
+                negative_ahead = random.randint(negative_index_ahead, len(self.actions)-1)
+            if negative_index_behind >= 0:
+                negative_behind = random.randint(0, negative_index_behind)
+            if negative_ahead is None:
+                pair_index = negative_behind
+            elif negative_behind is None:
+                pair_index = negative_ahead
             else:
-                pair_index = negative_index_ahead
+                if random.random() < 0.5:
+                    pair_index = negative_behind
+                else:
+                    pair_index = negative_ahead
 
         anchor = self.states[index]
         pair = self.states[pair_index]

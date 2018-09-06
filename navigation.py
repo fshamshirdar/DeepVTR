@@ -14,6 +14,7 @@ import numpy as np
 import os
 import time
 from tqdm import tqdm
+from vizdoom import *
 
 from dataset import RecordedAirSimDataLoader
 from dataset import OnlineVizDoomDataLoader
@@ -213,7 +214,7 @@ class Navigation:
         optimizer = optim.SGD(list(filter(lambda p: p.requires_grad, self.model.parameters())), lr=constants.TRAINING_LOCO_LR, momentum=constants.TRAINING_LOCO_MOMENTUM)
         exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=constants.TRAINING_LOCO_LR_SCHEDULER_SIZE, gamma=constants.TRAINING_LOCO_LR_SCHEDULER_GAMMA)
  
-        kwargs = {'num_workers': 8, 'pin_memory': True} if torch.cuda.is_available() else {}
+        kwargs = {'num_workers': 8, 'pin_memory': False} if torch.cuda.is_available() else {}
         train_dataset = OnlineVizDoomDataLoader(wad, locomotion=True, transform=self.np_preprocess)
         val_dataset = OnlineVizDoomDataLoader(wad, locomotion=True, transform=self.np_preprocess)
         train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=constants.TRAINING_LOCO_BATCH, shuffle=True, **kwargs)
@@ -226,8 +227,8 @@ class Navigation:
         best_acc = 0.0
 
         for epoch in range(train_iterations):
-            train_dataset.collect()
-            val_dataset.collect()
+            train_dataset.collect(constants.DATA_COLLECTION_ONLINE_TRAINING_ROUNG_LENGTH)
+            val_dataset.collect(constants.DATA_COLLECTION_ONLINE_VALIDATING_ROUNG_LENGTH)
 
             print('Epoch {}/{}'.format(epoch, train_iterations - 1))
             print('-' * 10)
