@@ -455,13 +455,19 @@ class PlaceRecognition:
 
     def save_model(self, checkpoint_path, epoch):
         print ("Saving a new checkpoint on epoch {}".format(epoch+1))
-        state = {
-            'epoch': epoch + 1,
-            'state_dict': self.model.state_dict(),
-        }
         if (constants.PLACE_TOP_MODEL == constants.PLACE_TOP_SIAMESE):
             top_network_name = 'siamese'
+            state = {
+                'epoch': epoch + 1,
+                'state_dict': self.siamesenet.state_dict(),
+            }
+
         else: # triplet
+            state = {
+                'epoch': epoch + 1,
+                'state_dict': self.model.state_dict(),
+            }
             top_network_name = 'triplet' 
+
         model_name = 'place_{}_checkpoint_{}.pth'.format(top_network_name, epoch)
         torch.save(state, os.path.join(checkpoint_path, model_name))
