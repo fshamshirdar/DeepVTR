@@ -24,11 +24,12 @@ class VizDoomSingleAgent:
         self.init = None
         self.seed = seed
         self.cycle = 0
-        self.sequence = deque(maxlen=constants.SEQUENCE_LENGTH)
         self.current_state = None
         self.previous_action = 0
+        self.last_matched = []
         self.game = self.initialize_game(wad, game_args)
         self.placeRecognition.model.eval()
+        # self.placeRecognition.siamesenet.eval()
         self.navigation.model.eval()
 
     def initialize_game(self, wad, game_args):
@@ -42,13 +43,26 @@ class VizDoomSingleAgent:
         return game
 
     def get_distance_to_obstacles(self, depth_buf):
+#        min_left = 255
+#        min_right = 255
+#        for i in range(depth_buf.shape[0]):
+#            if (depth_buf[i, 0] < min_left):
+#                min_left = depth_buf[i, 0]
+#            if (depth_buf[i, depth_buf.shape[1]-1] < min_right):
+#                min_right = depth_buf[i, depth_buf.shape[1]-1]
+#        return min_left, min_right
+
         min_left = 255
         min_right = 255
-        for i in range(depth_buf.shape[0]):
-            if (depth_buf[i, 0] < min_left):
+        i = int(depth_buf.shape[0]/2)
+        for j in range(int(depth_buf.shape[1]/2)):
+            if (depth_buf[i, j] < min_left):
                 min_left = depth_buf[i, 0]
-            if (depth_buf[i, depth_buf.shape[1]-1] < min_right):
-                min_right = depth_buf[i, depth_buf.shape[1]-1]
+        
+        for j in range(int(depth_buf.shape[1]/2), depth_buf.shape[1]):
+            if (depth_buf[i, j] < min_right):
+                min_right = depth_buf[i, j]
+
         return min_left, min_right
 
     def set_seed(self, seed):
@@ -64,7 +78,8 @@ class VizDoomSingleAgent:
         self.init = state
         self.current_state = state
         self.temporary_trail = [state]
-        self.sequence = deque(maxlen=constants.SEQUENCE_LENGTH)
+        self.last_matched = []
+        self.trail.clear_sequence()
         return state
 
     def step(self, action, repeat=4):
@@ -84,19 +99,21 @@ class VizDoomSingleAgent:
         return (distance < constants.VIZDOOM_GOAL_DISTANCE_THRESHOLD)
 
     def search(self):
+        # self.last_matched = []
         # print ("pose: ", self.game.get_state().game_variables)
-        index, score, velocity = self.trail.find_closest_waypoint(self.sequence)
-        # index, score, velocity = self.trail.find_best_waypoint(self.sequence)
-        # index, score, velocity = self.trail.find_most_similar_waypoint(self.sequence)
+        index, score, velocity, self.last_matched = self.trail.find_closest_waypoint(self.current_state, backward=False, last_matched=self.last_matched)
+        # index, score, velocity, self.last_matched = self.trail.find_best_waypoint(self.current_state, backward=False, last_matched=self.last_matched)
+        # index, score, velocity, self.last_matched = self.trail.find_most_similar_waypoint(self.current_state, backward=False, last_matched=self.last_matched)
         # index = -1
 
         depth_buf = self.game.get_state().depth_buffer
         left_dist, right_dist = self.get_distance_to_obstacles(depth_buf)
-        if (index == -1): # or random.random() < constants.MULTI_AGENT_RANDOM_MOVEMENT_CHANCE):
+        if (index == -1):
             # action = random.choice([0, 0, 0, 0, 1, 2, 3, 4, 5])
             if (self.cycle % 5 == 0):
                 # action = random.randint(0, constants.LOCO_NUM_CLASSES-1)
                 permitted_actions = [i for i in range(0, constants.LOCO_NUM_CLASSES)]
+                permitted_actions.remove(constants.ACTION_MOVE_BACKWARD)
                 if (self.previous_action == constants.ACTION_MOVE_FORWARD and constants.ACTION_MOVE_BACKWARD in permitted_actions):
                     permitted_actions.remove(constants.ACTION_MOVE_BACKWARD)
                 elif (self.previous_action == constants.ACTION_MOVE_BACKWARD and constants.ACTION_MOVE_FORWARD in permitted_actions):
@@ -114,7 +131,17 @@ class VizDoomSingleAgent:
                 action = 0
             else:
                 action = self.previous_action
+
+            if (left_dist < 6):
+                action = constants.ACTION_TURN_RIGHT
+            elif (right_dist < 6): 
+                action = constants.ACTION_TURN_LEFT
+
             # wait()
+        elif (random.random() < constants.MULTI_AGENT_RANDOM_MOVEMENT_CHANCE):
+            permitted_actions = [i for i in range(0, constants.LOCO_NUM_CLASSES)]
+            permitted_actions.remove(constants.ACTION_MOVE_BACKWARD)
+            action = random.choice(permitted_actions)
         else:
             # if (index+1 >= self.trail.len()):
             #     future_state = self.trail.waypoints[index].state
@@ -134,32 +161,27 @@ class VizDoomSingleAgent:
                 action = indices[1]
             print ("matched: ", index, score, actions)
 
-            from PIL import Image
-            # current_image = Image.fromarray(self.current_state)
-            future_image = Image.fromarray(future_state)
-            # current_image.save("current.png", "PNG")
-            future_image.save("future.png", "PNG")
-            time.sleep(0.1)
-            # wait()
+            # from PIL import Image
+            # future_image = Image.fromarray(future_state)
+            # future_image.save("future.png", "PNG")
+            # time.sleep(0.1)
+            wait()
 
-        if (left_dist < 5):
-            action = constants.ACTION_TURN_RIGHT
-        elif (right_dist < 5): 
-            action = constants.ACTION_TURN_LEFT
+        # if (left_dist < 5):
+        #     action = constants.ACTION_TURN_RIGHT
+        # elif (right_dist < 5): 
+        #     action = constants.ACTION_TURN_LEFT
 
-        next_state = self.step(action, repeat=2)
+        next_state = self.step(action, repeat=1)
 
         self.previous_action = action
         self.current_state = next_state
-        if (self.trail.len() > 0):
-            next_rep = self.placeRecognition.forward(next_state).data.cpu()
-            self.sequence.append(next_rep)
         self.temporary_trail.append(next_state)
 
     def update(self, cycle):
         self.cycle = cycle
         if (self.agent_state == constants.MULTI_AGENT_STATE_SEARCH):
-            if (len(self.temporary_trail) > 500): # TODO: temporary
+            if (len(self.temporary_trail) > 700): # TODO: temporary
                 print ("got too long, resetting")
                 self.reset_episode()
 
@@ -172,9 +194,9 @@ class VizDoomSingleAgent:
                 for state in self.temporary_trail:
                     self.trail.append_waypoint(input=state, created_at=self.cycle, steps_to_goal=steps_to_goal)
                     steps_to_goal -= 1
-                    # from PIL import Image
-                    # image = Image.fromarray(state)
-                    # image.save("image_%d.png" % steps_to_goal, "PNG")
+                    from PIL import Image
+                    image = Image.fromarray(state)
+                    image.save("image_%d.png" % steps_to_goal, "PNG")
                 self.reset_episode()
 
 class MultiVizDoomAgent(MultiAgent):

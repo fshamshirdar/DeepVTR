@@ -47,7 +47,7 @@ class PlaceRecognition:
         else:
             print ("Place network is not valid!")
 
-        if (constants.PLACE_TOP_SIAMESE):
+        if (constants.PLACE_TOP_MODEL == constants.PLACE_TOP_SIAMESE):
             self.siamesenet = SiameseNet(self.model)
         else:
             self.tripletnet = TripletNet(self.model)
@@ -76,14 +76,14 @@ class PlaceRecognition:
 
     def load_weights(self, checkpoint_path):
         checkpoint = torch.load(checkpoint_path)
-        if (constants.PLACE_TOP_SIAMESE):
-            self.siamesetnet.load_state_dict(checkpoint['state_dict'])
+        if (constants.PLACE_TOP_MODEL == constants.PLACE_TOP_SIAMESE):
+            self.siamesenet.load_state_dict(checkpoint['state_dict'])
         else: # triplet
             self.model.load_state_dict(checkpoint['state_dict'])
 
     def cuda(self):
         self.model.cuda()
-        if (constants.PLACE_TOP_SIAMESE):
+        if (constants.PLACE_TOP_MODEL == constants.PLACE_TOP_SIAMESE):
             self.siamesenet.cuda()
         else:
             self.tripletnet.cuda()
@@ -97,19 +97,24 @@ class PlaceRecognition:
         if self.use_cuda:
             image_tensor = image_tensor.cuda()
         image_variable = Variable(image_tensor)
-        return self.model(image_variable, flatten) # get representation
+        # return self.model(image_variable, flatten) # get representation
+        return self.model(image_variable) # get representation
 
     def compute_similarity_score(self, rep1, rep2):
-        if (constants.PLACE_TOP_MODEL):
+        if (constants.PLACE_TOP_MODEL == constants.PLACE_TOP_SIAMESE):
+           if (self.use_cuda):
+               rep1 = rep1.cuda()
+               rep2 = rep2.cuda()
            similarity_score = self.siamesenet(rep1, rep2, embedding_required=False)
-           similarity_score = similarity_score[0][1] # positive similarity
+           similarity_score = F.softmax(similarity_score)
+           similarity_score = similarity_score[0][1].data.cpu().item() # positive similarity
         else: # triplet
            similarity_score = F.cosine_similarity(rep1, rep2)
            similarity_score = similarity_score[0]
         return similarity_score
 
     def train(self, datapath, checkpoint_path, train_iterations, online_training=False):
-        if (constants.PLACE_TOP_SIAMESE):
+        if (constants.PLACE_TOP_MODEL == constants.PLACE_TOP_SIAMESE):
             if (online_training):
                 return self.train_siamese_online(constants.VIZDOOM_DEFAULT_WAD, checkpoint_path, train_iterations)
             else:
@@ -118,7 +123,7 @@ class PlaceRecognition:
             return self.train_triplet(datapath, checkpoint_path, train_iterations)
 
     def eval(self, datapath):
-        if (constants.PLACE_TOP_SIAMESE):
+        if (constants.PLACE_TOP_MODEL == constants.PLACE_TOP_SIAMESE):
             return self.eval_siamese(datapath, checkpoint_path, train_iterations)
         else:
             return self.eval_triplet(datapath, checkpoint_path, train_iterations)
