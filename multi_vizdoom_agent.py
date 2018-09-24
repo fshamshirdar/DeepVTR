@@ -1,8 +1,11 @@
 import time
 import random
 import math
+import pickle
 import numpy as np
 # from multiprocessing import Process
+from PIL import Image
+import cv2
 from collections import deque
 import torch
 from vizdoom import *
@@ -19,28 +22,70 @@ class VizDoomSingleAgent:
         self.trail = trail
         self.navigation = navigation
         self.agent_state = constants.MULTI_AGENT_STATE_SEARCH
+        self.wad = wad
+        self.seed = seed
+        self.game_args = game_args
         self.temporary_trail = []
         self.goal = None
         self.init = None
-        self.seed = seed
         self.cycle = 0
         self.current_state = None
         self.previous_action = 0
         self.last_matched = []
-        self.game = self.initialize_game(wad, game_args)
+        self.random_ongoing_actions = []
+        self.random_movement_chance = constants.MULTI_AGENT_INITIAL_RANDOM_MOVEMENT_CHANCE
+        self.game = self.initialize_game()
         self.placeRecognition.model.eval()
         # self.placeRecognition.siamesenet.eval()
         self.navigation.model.eval()
 
-    def initialize_game(self, wad, game_args):
+    def initialize_game(self):
         game = DoomGame()
         game.load_config(constants.VIZDOOM_DEFAULT_CONFIG)
-        for args in game_args:
+        for args in self.game_args:
             game.add_game_args(args)
-        game.set_doom_scenario_path(wad)
+        game.set_doom_scenario_path(self.wad)
         game.set_seed(self.seed)
         game.init()
         return game
+
+#    def replay_episode(self, lmp):
+#        if (lmp == None):
+#            return
+#
+#        actions = []
+#        with open(lmp+'_actions.txt', 'rb') as f:
+#            actions = pickle.load(f)
+#
+#        print (len(actions))
+#        self.game.replay_episode(lmp)
+#        # while not self.game.is_episode_finished():
+#        for action in actions:
+#            current_frame = self.game.get_state().screen_buffer.transpose([1, 2, 0])
+#            pose = self.game.get_state().game_variables
+#            self.game.advance_action()
+#            # action = self.game.get_last_action()
+#            self.temporary_trail.append({'state': current_frame, 'position': pose, 'action': action})
+#
+#        self.trail.append_waypoints(self.temporary_trail, self.cycle)
+
+    def replay_episode(self, lmp):
+        if (lmp == None):
+            return
+
+        self.reset_episode()
+        actions = []
+        with open(lmp, 'rb') as f:
+            actions = pickle.load(f)
+
+        print ("loading actions: ", len(actions))
+        for action in actions:
+            current_frame = self.game.get_state().screen_buffer.transpose([1, 2, 0])
+            pose = self.game.get_state().game_variables
+            next_state = self.step(action)
+            self.temporary_trail.append({'state': current_frame, 'position': pose, 'action': action})
+
+        self.trail.append_waypoints(self.temporary_trail, self.cycle)
 
     def get_distance_to_obstacles(self, depth_buf):
 #        min_left = 255
@@ -71,112 +116,185 @@ class VizDoomSingleAgent:
     def set_map(self, selected_map):
         self.game.set_doom_map(selected_map)
 
-    def reset_episode(self):
+    def reset_episode(self, recording_path=None):
         self.game.set_seed(self.seed)
-        self.game.new_episode()
+        # self.game.new_episode('./saved.lmp')
+        if (recording_path is None):
+            self.game.new_episode()
+        else:
+            self.game.new_episode(recording_path)
         state = self.game.get_state().screen_buffer.transpose([1, 2, 0])
+        pose = self.game.get_state().game_variables
         self.init = state
+        self.previous_action = -1
         self.current_state = state
-        self.temporary_trail = [state]
+        self.temporary_trail = [{'state': state, 'position': pose, 'action': constants.ACTION_MOVE_FORWARD}]
         self.last_matched = []
-        self.trail.clear_sequence()
         return state
 
-    def step(self, action, repeat=4):
+    def step(self, action, repeat=1):
         self.game.make_action(constants.VIZDOOM_ACTIONS_LIST[action], repeat)
         state = self.game.get_state().screen_buffer.transpose([1, 2, 0])
+        self.game.make_action(constants.VIZDOOM_STAY_IDLE, 4)
         # time.sleep(0.1)
         return state
 
     def goal_reached(self, pose):
         # goal_location = (609.92807007, 247.60987854, 0)
         # goal_location = (-97.92807007, -220.60987854, 0)
-        goal_location = (700.92807007, -388.60987854, 0)
+        goal_location = (715.92807007, -408.60987854, 0)
         distance = math.sqrt((pose[0] - goal_location[0]) ** 2 +
                              (pose[1] - goal_location[1]) ** 2 + 
                              (pose[2] - goal_location[2]) ** 2)
 
         return (distance < constants.VIZDOOM_GOAL_DISTANCE_THRESHOLD)
 
-    def search(self):
-        # self.last_matched = []
-        # print ("pose: ", self.game.get_state().game_variables)
-        index, score, velocity, self.last_matched = self.trail.find_closest_waypoint(self.current_state, backward=False, last_matched=self.last_matched)
-        # index, score, velocity, self.last_matched = self.trail.find_best_waypoint(self.current_state, backward=False, last_matched=self.last_matched)
-        # index, score, velocity, self.last_matched = self.trail.find_most_similar_waypoint(self.current_state, backward=False, last_matched=self.last_matched)
-        # index = -1
-
-        depth_buf = self.game.get_state().depth_buffer
-        left_dist, right_dist = self.get_distance_to_obstacles(depth_buf)
-        if (index == -1):
-            # action = random.choice([0, 0, 0, 0, 1, 2, 3, 4, 5])
-            if (self.cycle % 5 == 0):
-                # action = random.randint(0, constants.LOCO_NUM_CLASSES-1)
-                permitted_actions = [i for i in range(0, constants.LOCO_NUM_CLASSES)]
-                permitted_actions.remove(constants.ACTION_MOVE_BACKWARD)
-                if (self.previous_action == constants.ACTION_MOVE_FORWARD and constants.ACTION_MOVE_BACKWARD in permitted_actions):
-                    permitted_actions.remove(constants.ACTION_MOVE_BACKWARD)
-                elif (self.previous_action == constants.ACTION_MOVE_BACKWARD and constants.ACTION_MOVE_FORWARD in permitted_actions):
-                    permitted_actions.remove(constants.ACTION_MOVE_FORWARD)
-                elif (self.previous_action == constants.ACTION_TURN_RIGHT and constants.ACTION_TURN_LEFT in permitted_actions):
-                    permitted_actions.remove(constants.ACTION_TURN_LEFT)
-                elif (self.previous_action == constants.ACTION_TURN_LEFT and constants.ACTION_TURN_RIGHT in permitted_actions):
-                    permitted_actions.remove(constants.ACTION_TURN_RIGHT)
-                elif (self.previous_action == constants.ACTION_MOVE_RIGHT and constants.ACTION_MOVE_LEFT in permitted_actions):
-                    permitted_actions.remove(constants.ACTION_MOVE_LEFT)
-                elif (self.previous_action == constants.ACTION_MOVE_LEFT and constants.ACTION_MOVE_RIGHT in permitted_actions):
-                    permitted_actions.remove(constants.ACTION_MOVE_RIGHT)
-                action = random.choice(permitted_actions)
-            elif (self.cycle % 5 == 3):
-                action = 0
-            else:
-                action = self.previous_action
-
-            if (left_dist < 6):
-                action = constants.ACTION_TURN_RIGHT
-            elif (right_dist < 6): 
-                action = constants.ACTION_TURN_LEFT
-
-            # wait()
-        elif (random.random() < constants.MULTI_AGENT_RANDOM_MOVEMENT_CHANCE):
+    def global_random_search_old(self):
+        repeat = 1
+        # action = random.choice([0, 0, 0, 0, 1, 2, 3, 4, 5])
+        if (self.cycle % 5 == 0):
+            # action = random.randint(0, constants.LOCO_NUM_CLASSES-1)
             permitted_actions = [i for i in range(0, constants.LOCO_NUM_CLASSES)]
             permitted_actions.remove(constants.ACTION_MOVE_BACKWARD)
+            permitted_actions.remove(constants.ACTION_MOVE_RIGHT)
+            permitted_actions.remove(constants.ACTION_MOVE_LEFT)
+            if (self.previous_action == constants.ACTION_MOVE_FORWARD and constants.ACTION_MOVE_BACKWARD in permitted_actions):
+                permitted_actions.remove(constants.ACTION_MOVE_BACKWARD)
+            elif (self.previous_action == constants.ACTION_MOVE_BACKWARD and constants.ACTION_MOVE_FORWARD in permitted_actions):
+                permitted_actions.remove(constants.ACTION_MOVE_FORWARD)
+            elif (self.previous_action == constants.ACTION_TURN_RIGHT and constants.ACTION_TURN_LEFT in permitted_actions):
+                permitted_actions.remove(constants.ACTION_TURN_LEFT)
+            elif (self.previous_action == constants.ACTION_TURN_LEFT and constants.ACTION_TURN_RIGHT in permitted_actions):
+                permitted_actions.remove(constants.ACTION_TURN_RIGHT)
+            elif (self.previous_action == constants.ACTION_MOVE_RIGHT and constants.ACTION_MOVE_LEFT in permitted_actions):
+                permitted_actions.remove(constants.ACTION_MOVE_LEFT)
+            elif (self.previous_action == constants.ACTION_MOVE_LEFT and constants.ACTION_MOVE_RIGHT in permitted_actions):
+                permitted_actions.remove(constants.ACTION_MOVE_RIGHT)
             action = random.choice(permitted_actions)
+        elif (self.cycle % 5 == 3):
+            action = 0
         else:
-            # if (index+1 >= self.trail.len()):
-            #     future_state = self.trail.waypoints[index].state
-            # else:
-            #     future_state = self.trail.waypoints[index+1].state
-            future_state = self.trail.waypoints[index].state
-            actions = self.navigation.forward(self.current_state, self.trail.waypoints[index].state, future_state)
-            actions = torch.squeeze(actions)
-            sorted_actions, indices = torch.sort(actions, descending=True)
-            action = indices[0]
-            if ((self.previous_action == constants.ACTION_MOVE_FORWARD and action == constants.ACTION_MOVE_BACKWARD) or
-                (self.previous_action == constants.ACTION_MOVE_BACKWARD and action == constants.ACTION_MOVE_FORWARD) or
-                (self.previous_action == constants.ACTION_TURN_RIGHT and action == constants.ACTION_TURN_LEFT) or
-                (self.previous_action == constants.ACTION_TURN_LEFT and action == constants.ACTION_TURN_RIGHT) or
-                (self.previous_action == constants.ACTION_MOVE_RIGHT and action == constants.ACTION_MOVE_LEFT) or
-                (self.previous_action == constants.ACTION_MOVE_LEFT and action == constants.ACTION_MOVE_RIGHT)):
-                action = indices[1]
-            print ("matched: ", index, score, actions)
+            action = self.previous_action
+        return action, repeat
 
-            # from PIL import Image
-            # future_image = Image.fromarray(future_state)
-            # future_image.save("future.png", "PNG")
-            # time.sleep(0.1)
-            wait()
+    def local_random_search_old(self):
+        repeat = 2
+        permitted_actions = [i for i in range(0, constants.LOCO_NUM_CLASSES)]
+        permitted_actions.remove(constants.ACTION_MOVE_BACKWARD)
+#       permitted_actions.remove(constants.ACTION_MOVE_FORWARD)
+#       permitted_actions.remove(constants.ACTION_MOVE_LEFT)
+#       permitted_actions.remove(constants.ACTION_MOVE_RIGHT)
+        if (self.previous_action == constants.ACTION_MOVE_FORWARD and constants.ACTION_MOVE_BACKWARD in permitted_actions):
+            permitted_actions.remove(constants.ACTION_MOVE_BACKWARD)
+        elif (self.previous_action == constants.ACTION_MOVE_BACKWARD and constants.ACTION_MOVE_FORWARD in permitted_actions):
+            permitted_actions.remove(constants.ACTION_MOVE_FORWARD)
+        elif (self.previous_action == constants.ACTION_TURN_RIGHT and constants.ACTION_TURN_LEFT in permitted_actions):
+            permitted_actions.remove(constants.ACTION_TURN_LEFT)
+        elif (self.previous_action == constants.ACTION_TURN_LEFT and constants.ACTION_TURN_RIGHT in permitted_actions):
+            permitted_actions.remove(constants.ACTION_TURN_RIGHT)
+        elif (self.previous_action == constants.ACTION_MOVE_RIGHT and constants.ACTION_MOVE_LEFT in permitted_actions):
+            permitted_actions.remove(constants.ACTION_MOVE_LEFT)
+        elif (self.previous_action == constants.ACTION_MOVE_LEFT and constants.ACTION_MOVE_RIGHT in permitted_actions):
+            permitted_actions.remove(constants.ACTION_MOVE_RIGHT)
+        action = random.choice(permitted_actions)
 
-        # if (left_dist < 5):
-        #     action = constants.ACTION_TURN_RIGHT
-        # elif (right_dist < 5): 
-        #     action = constants.ACTION_TURN_LEFT
+        return action, repeat
 
-        next_state = self.step(action, repeat=1)
+    def global_random_search(self):
+        repeat = 1
+        permitted_actions = [i for i in range(0, constants.LOCO_NUM_CLASSES)]
+        permitted_actions.remove(constants.ACTION_MOVE_BACKWARD)
+        permitted_actions.remove(constants.ACTION_MOVE_FORWARD)
+#        permitted_actions.remove(constants.ACTION_MOVE_LEFT)
+#        permitted_actions.remove(constants.ACTION_MOVE_RIGHT)
+        action = random.choice(permitted_actions)
+
+        ongoing_random_action = [action for i in range(random.randint(1, 7))]
+        ongoing_forward_action = [constants.ACTION_MOVE_FORWARD for i in range(random.randint(1, 5))]
+        self.random_ongoing_actions += ongoing_random_action
+        self.random_ongoing_actions += ongoing_forward_action
+        
+        return action, repeat
+
+    def local_random_search(self):
+        repeat = 1
+        permitted_actions = [i for i in range(0, constants.LOCO_NUM_CLASSES)]
+        permitted_actions.remove(constants.ACTION_MOVE_BACKWARD)
+        permitted_actions.remove(constants.ACTION_MOVE_FORWARD)
+        permitted_actions.remove(constants.ACTION_MOVE_LEFT)
+        permitted_actions.remove(constants.ACTION_MOVE_RIGHT)
+        action = random.choice(permitted_actions)
+
+        ongoing_random_action = [action for i in range(random.randint(1, 7))]
+        ongoing_forward_action = [constants.ACTION_MOVE_FORWARD for i in range(random.randint(1, 5))]
+        self.random_ongoing_actions += ongoing_random_action
+        self.random_ongoing_actions += ongoing_forward_action
+        
+        return action, repeat
+
+    def trail_following(self, future_state):
+        cv2.imshow('image', future_state)
+        cv2.waitKey(10)
+
+        repeat = 1
+        actions = self.navigation.forward(self.current_state, None, future_state)
+        actions = torch.squeeze(actions)
+        sorted_actions, indices = torch.sort(actions, descending=True)
+        action = indices[0]
+        if ((self.previous_action == constants.ACTION_MOVE_FORWARD and action == constants.ACTION_MOVE_BACKWARD) or
+            (self.previous_action == constants.ACTION_MOVE_BACKWARD and action == constants.ACTION_MOVE_FORWARD) or
+            (self.previous_action == constants.ACTION_TURN_RIGHT and action == constants.ACTION_TURN_LEFT) or
+            (self.previous_action == constants.ACTION_TURN_LEFT and action == constants.ACTION_TURN_RIGHT) or
+            (self.previous_action == constants.ACTION_MOVE_RIGHT and action == constants.ACTION_MOVE_LEFT) or
+            (self.previous_action == constants.ACTION_MOVE_LEFT and action == constants.ACTION_MOVE_RIGHT)):
+            action = indices[1]
+
+        # print ("actions: ", actions)
+        # wait()
+
+        return action, repeat
+
+    def search(self):
+        repeat = 1
+        pose = self.game.get_state().game_variables
+        depth_buf = self.game.get_state().depth_buffer
+        left_dist, right_dist = self.get_distance_to_obstacles(depth_buf)
+
+        if (len(self.random_ongoing_actions) > 0):
+            # print (self.random_ongoing_actions)
+            self.last_matched = []
+            action = self.random_ongoing_actions.pop(0)
+            repeat = 1
+            # wait()
+        else:
+            # if (self.cycle % 5 == 0):
+            #     self.last_matched = []
+
+            # self.last_matched = []
+            future_state, score, velocity, self.last_matched = self.trail.find_closest_waypoint(self.current_state, backward=False, last_matched=self.last_matched)
+            # future_state, score, velocity, self.last_matched = self.trail.find_best_waypoint(self.current_state, backward=False, last_matched=self.last_matched)
+            # future_state, score, velocity, self.last_matched = self.trail.find_most_similar_waypoint(self.current_state, backward=False, last_matched=self.last_matched)
+
+            if (future_state is None):
+                action, repeat = self.global_random_search()
+            elif (random.random() < self.random_movement_chance):
+                action, repeat = self.local_random_search()
+            else:
+                action, repeat = self.trail_following(future_state)
+                # print ("matched: ", score, action)
+
+        if (left_dist < 3):
+            action = constants.ACTION_TURN_RIGHT
+            repeat = 1
+        elif (right_dist < 3): 
+            action = constants.ACTION_TURN_LEFT
+            repeat = 1
+
+        next_state = self.step(action, repeat=repeat)
 
         self.previous_action = action
         self.current_state = next_state
-        self.temporary_trail.append(next_state)
+        self.temporary_trail.append({'state': next_state, 'position': pose, 'action': action})
 
     def update(self, cycle):
         self.cycle = cycle
@@ -188,23 +306,64 @@ class VizDoomSingleAgent:
             self.search()
             pose = self.game.get_state().game_variables
             if (self.goal_reached(pose)):
+                self.random_movement_chance -= constants.MULTI_AGENT_RANDOM_MOVEMENT_CHANCE_GAMMA
+                print ("random chance: ", self.random_movement_chance)
+                print ("memory size: ", self.trail.len())
                 # self.agent_state = constants.MULTI_AGENT_STATE_HOME
-                steps_to_goal = len(self.temporary_trail)
                 print ("goal reached, trail len: ", len(self.temporary_trail))
-                for state in self.temporary_trail:
-                    self.trail.append_waypoint(input=state, created_at=self.cycle, steps_to_goal=steps_to_goal)
-                    steps_to_goal -= 1
-                    from PIL import Image
-                    image = Image.fromarray(state)
-                    image.save("image_%d.png" % steps_to_goal, "PNG")
+                self.trail.append_waypoints(self.temporary_trail, self.cycle)
+                # self.trail.update_waypoints()
+                # self.game.close()
                 self.reset_episode()
+                return True
+        return False
+
+    def record(self, recording_path):
+        self.reset_episode()
+        actions = []
+        while (True):
+            if (len(self.temporary_trail) > 700): # TODO: temporary
+                print ("got too long, resetting")
+                self.reset_episode()
+                actions = []
+
+            self.search()
+            actions.append(self.previous_action)
+            pose = self.game.get_state().game_variables
+            if (self.goal_reached(pose)):
+                print ("goal reached, trail len: ", len(self.temporary_trail))
+                self.game.close()
+                with open(recording_path+'_actions.txt', 'wb') as f:
+                    pickle.dump(actions, f)
+                return
+
+#    def record(self, recording_path):
+#        self.reset_episode(recording_path)
+#        actions = []
+#        while (True):
+#            if (len(self.temporary_trail) > 700): # TODO: temporary
+#                print ("got too long, resetting")
+#                self.reset_episode(recording_path)
+#                actions = []
+#
+#            self.search()
+#            actions.append(self.previous_action)
+#            pose = self.game.get_state().game_variables
+#            if (self.goal_reached(pose)):
+#                self.random_movement_chance -= constants.MULTI_AGENT_RANDOM_MOVEMENT_CHANCE_GAMMA
+#                print ("goal reached, trail len: ", len(self.temporary_trail))
+#                self.game.close()
+#                with open(recording_path+'_actions.txt', 'wb') as f:
+#                    pickle.dump(actions, f)
+#                return
 
 class MultiVizDoomAgent(MultiAgent):
-    def __init__(self, placeRecognition, navigation, wad):
+    def __init__(self, placeRecognition, navigation, wad, lmp):
         super(MultiVizDoomAgent, self).__init__(placeRecognition, navigation)
         self.placeRecognition = placeRecognition
         self.navigation = navigation
         self.wad = wad
+        self.lmp = lmp
         self.seed = self.new_seed()
         self.cycle = 0
         self.agents = []
@@ -214,22 +373,31 @@ class MultiVizDoomAgent(MultiAgent):
             self.agents.append(VizDoomSingleAgent(self.placeRecognition, self.trail, self.navigation, self.wad, self.seed, game_args=[]))
 
     def new_seed(self):
-        self.seed = random.randint(1, 1234567890)
+        self.seed = 100 # random.randint(1, 1234567890)
         return self.seed
 
-    def run(self):
-        # p1 = Process(target=self.agent1.run())
-        # p1.start()
-        # self.agent2.run()
+    def record(self):
+        if (self.lmp is None):
+            print ("lmp is empty")
+            return
+        selected_map = 'map02'
+        self.agents[0].set_map(selected_map)
+        self.agents[0].record(self.lmp)
 
+    def run(self):
         # selected_map = (constants.VIZDOOM_MAP_NAME_TEMPLATE % random.randint(constants.VIZDOOM_MIN_RANDOM_TEXTURE_MAP_INDEX, constants.VIZDOOM_MAX_RANDOM_TEXTURE_MAP_INDEX))
-        selected_map = (constants.VIZDOOM_MAP_NAME_TEMPLATE % random.randint(constants.VIZDOOM_MIN_TEST_MAP_INDEX, constants.VIZDOOM_MAX_TEST_MAP_INDEX))
+        # selected_map = (constants.VIZDOOM_MAP_NAME_TEMPLATE % random.randint(constants.VIZDOOM_MIN_TEST_MAP_INDEX, constants.VIZDOOM_MAX_TEST_MAP_INDEX))
+        selected_map = 'map02'
         for i in range(constants.MULTI_NUM_AGENTS):
             self.agents[i].set_map(selected_map)
+            self.agents[i].replay_episode(self.lmp)
             self.agents[i].reset_episode()
 
+        self.trail.draw_waypoints()
         while (True):
             self.cycle += 1
             for i in range(constants.MULTI_NUM_AGENTS):
-                self.agents[i].update(self.cycle)
+                reached_goal = self.agents[i].update(self.cycle)
+                if (reached_goal):
+                    self.trail.draw_waypoints()
             self.trail.update_waypoints()

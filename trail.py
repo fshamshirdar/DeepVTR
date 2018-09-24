@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import constants
+import matplotlib.pyplot as plt
 from collections import namedtuple, deque
 
 from place_recognition import PlaceRecognition
@@ -20,16 +21,24 @@ class Trail:
         self.placeRecognition = placeRecognition
         self.sequence_similarity = deque(maxlen=constants.SEQUENCE_LENGTH)
 
-    def append_waypoint(self, input, created_at=None, steps_to_goal=None, position=None):
-        rep = self.placeRecognition.forward(input)
-        self.waypoints.append(Waypoint(state=input, rep=rep.data.cpu(), position=position, created_at=created_at, density=1.0, steps_to_goal=steps_to_goal)) # temporary for cpu()
-        return rep, True
+    def append_waypoints(self, waypoints, created_at): # [{'state': state, 'position': position}]
+        # steps_to_goal = len(waypoints)
+
+        steps_to_goal = 0
+        for waypoint in waypoints:
+            if (waypoint['action'] not in [constants.ACTION_TURN_RIGHT, constants.ACTION_TURN_LEFT]):
+                steps_to_goal += 1
+
+        for waypoint in waypoints:
+            rep = self.placeRecognition.forward(waypoint['state'])
+            self.waypoints.append(Waypoint(state=waypoint['state'], rep=rep.data.cpu(), position=waypoint['position'], created_at=created_at, density=1.0, steps_to_goal=steps_to_goal)) # temporary for cpu()
+            # steps_to_goal -= 1
+            if (waypoint['action'] not in [constants.ACTION_TURN_RIGHT, constants.ACTION_TURN_LEFT]):
+                steps_to_goal -= 1
+        return True
 
     def len(self):
         return len(self.waypoints)
-
-    def get_waypoints(self):
-        return self.waypoints
 
     def clear(self):
         self.waypoints = []
@@ -43,6 +52,22 @@ class Trail:
             waypoint.density -= constants.TRAIL_EVAPORATION_COEFFICIENT_RATE
             if (waypoint.density < 0):
                 del self.waypoints[index]
+
+    def draw_waypoints(self):
+        x, y, z = [], [], []
+        for waypoint in self.waypoints:
+            x.append(waypoint.position[0])
+            y.append(waypoint.position[1])
+            z.append(waypoint.density)
+
+        x, y, z = np.asarray(x), np.asarray(y), np.asarray(z)
+
+        idx = z.argsort()
+        x, y, z = x[idx], y[idx], z[idx]
+
+        # fig, ax = plt.subplots()
+        plt.scatter(x, y, c=z, s=10, edgecolor='')
+        plt.pause(0.05)
 
     def calculate_threshold(self, similarity_array, k):
         n = len(similarity_array)
@@ -71,6 +96,7 @@ class Trail:
                 min_steps_to_goal = self.waypoints[item[0]].steps_to_goal
 
         last_matched_indexes = []
+        best_state = None
         best_score = 0.
         best_index = -1
         best_velocity = 0
@@ -79,14 +105,16 @@ class Trail:
                      constants.TRAIL_SIMILARITY_WEIGHT * (item[1])) / (constants.TRAIL_STEP_TO_TARGET_WEIGHT + constants.TRAIL_SIMILARITY_WEIGHT)
             if (score > best_score):
                 best_score = score
+                best_state = self.waypoints[item[0]].state
                 best_index = item[0]
                 best_velocity = item[2]
 
-        return best_index, best_score, best_velocity, results
+        return best_state, best_score, best_velocity, results
 
     def find_closest_waypoint(self, state, backward=False, last_matched=[]):
         results = self.relocalize(state, backward, last_matched) # results contains (index, similaity, velocity)
 
+        best_state = None
         best_score = 0.
         best_index = -1
         best_velocity = 0
@@ -95,26 +123,29 @@ class Trail:
         for item in results:
             if (self.waypoints[item[0]].steps_to_goal < min_steps_to_goal):
                 min_steps_to_goal = self.waypoints[item[0]].steps_to_goal
+                best_state = self.waypoints[item[0]].state
                 best_score = min_steps_to_goal
                 best_index = item[0]
                 best_velocity = item[2]
 
-        return best_index, best_score, best_velocity, results
+        return best_state, best_score, best_velocity, results
 
     def find_most_similar_waypoint(self, state, backward=False, last_matched=[]):
         results = self.relocalize(state, backward, last_matched) # results contains (index, similaity, velocity)
 
+        best_state = None
         best_score = 0.
         best_index = -1
         best_velocity = 0
 
         for item in results:
             if (item[1] > best_score):
+                best_state = self.waypoints[item[0]].state
                 best_score = item[1]
                 best_index = item[0]
                 best_velocity = item[2]
 
-        return best_index, best_score, best_velocity, results
+        return best_state, best_score, best_velocity, results
 
     def calculate_threshold_domain(self, rep, search_domain):
         similarity_dict = {}
@@ -127,7 +158,11 @@ class Trail:
         threshold = self.calculate_threshold(similarity_array, constants.TRAIL_K_NEAREST_NEIGHBORS)
         return threshold, similarity_dict
 
-    def relocalize_new(self, state, backward=False, last_matched=[]):
+    def relocalize(self, state, backward=False, last_matched=[]):
+        # return self.global_relocalize(state, backward, last_matched)
+        return self.knn_relocalize(state, backward, last_matched)
+
+    def global_relocalize(self, state, backward=False, last_matched=[]):
         if (self.len() == 0):
             return []
 
@@ -150,6 +185,7 @@ class Trail:
             # print (similarity_dict)
             search_domain = range(memory_size)
             threshold, similarity_dict = self.calculate_threshold_domain(rep, search_domain)
+            # threshold = max([threshold, constants.TRAIL_SIMILARITY_THRESHOLD])
             threshold = constants.TRAIL_SIMILARITY_THRESHOLD
         else:
             threshold = constants.TRAIL_WEAK_SIMILARITY_THRESHOLD
@@ -164,8 +200,8 @@ class Trail:
         results_size = len(results)
         left_bound = int(results_size * constants.TRAIL_SIMILARITY_INNER_BOUND_RATE)
         right_bound = int(results_size * (1. - constants.TRAIL_SIMILARITY_INNER_BOUND_RATE))
-        results = results[left_bound:right_bound]
-        matched_indexes = matched_indexes[left_bound:right_bound]
+        # results = results[left_bound:right_bound]
+        # matched_indexes = matched_indexes[left_bound:right_bound]
 
         if (len(results) > 2):
             # adding next states if still higher than a number
@@ -175,19 +211,19 @@ class Trail:
                 for i in range(constants.TRAIL_LOOKAHEAD_MIN_INDEX, constants.TRAIL_LOOKAHEAD_MAX_INDEX):
                     index = lookahead_base_index + i
                     if (index not in similarity_dict):
-                        print ('---> index not in similarity dict: ', index, similarity_dict.keys())
+                        # print ('---> index not in similarity dict: ', index, similarity_dict.keys())
                         break
                     if (index not in matched_indexes and similarity_dict[index] > constants.TRAIL_LOOKAHEAD_SIMILARITY_THRESHOLD and index not in results):
                         results.append((index, similarity_dict[index], 0.))
                         matched_indexes.append(index)
-                        print ("lookahead: ", index)
+                        # print ("lookahead: ", index)
         else:
             results = []
 
         print ('results: ', threshold, results)
         return results
 
-    def relocalize(self, state, backward=False, last_matched=[]):
+    def knn_relocalize(self, state, backward=False, last_matched=[]):
         if (self.len() == 0):
             return []
 
@@ -233,16 +269,16 @@ class Trail:
                 for i in range(constants.TRAIL_LOOKAHEAD_MIN_INDEX, constants.TRAIL_LOOKAHEAD_MAX_INDEX):
                     index = lookahead_base_index + i
                     if (index not in similarity_dict):
-                        print ('---> index not in similarity dict: ', index, similarity_dict.keys())
+                        # print ('---> index not in similarity dict: ', index, similarity_dict.keys())
                         break
                     if (index not in matched_indexes and similarity_dict[index] > constants.TRAIL_LOOKAHEAD_SIMILARITY_THRESHOLD and index not in results):
                         results.append((index, similarity_dict[index], 0.))
                         matched_indexes.append(index)
-                        print ("lookahead: ", index)
+                        # print ("lookahead: ", index)
         else:
             results = []
 
-        print ('results: ', threshold, results)
+        # print ('results: ', threshold, results)
         return results
 
     def relocalize1(self, state, backward=False):

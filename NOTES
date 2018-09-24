@@ -1,0 +1,3 @@
+no local random movement, no temporality, parallel trails, turns as step -> good but no global optimization
+no local random movement, no temporality, knn single trail, turns as step -> good but very rare local optimization
+no local random movement, no temporality, global singletrail, turns as step -> good but very rare local optimization (longer processing time)
