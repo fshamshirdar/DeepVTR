@@ -47,7 +47,7 @@ class PlaceRecognition:
         else:
             print ("Place network is not valid!")
 
-        if (constants.PLACE_TOP_SIAMESE):
+        if (constants.PLACE_TOP_MODEL == constants.PLACE_TOP_SIAMESE):
             self.siamesenet = SiameseNet(self.model)
         else:
             self.tripletnet = TripletNet(self.model)
@@ -76,14 +76,14 @@ class PlaceRecognition:
 
     def load_weights(self, checkpoint_path):
         checkpoint = torch.load(checkpoint_path)
-        if (constants.PLACE_TOP_SIAMESE):
+        if (constants.PLACE_TOP_MODEL == constants.PLACE_TOP_SIAMESE):
             self.siamesetnet.load_state_dict(checkpoint['state_dict'])
         else: # triplet
             self.model.load_state_dict(checkpoint['state_dict'])
 
     def cuda(self):
         self.model.cuda()
-        if (constants.PLACE_TOP_SIAMESE):
+        if (constants.PLACE_TOP_MODEL == constants.PLACE_TOP_SIAMESE):
             self.siamesenet.cuda()
         else:
             self.tripletnet.cuda()
@@ -100,7 +100,7 @@ class PlaceRecognition:
         return self.model(image_variable, flatten) # get representation
 
     def compute_similarity_score(self, rep1, rep2):
-        if (constants.PLACE_TOP_MODEL):
+        if (constants.PLACE_TOP_MODEL == constants.PLACE_TOP_SIAMESE):
            similarity_score = self.siamesenet(rep1, rep2, embedding_required=False)
            similarity_score = similarity_score[0][1] # positive similarity
         else: # triplet
@@ -109,16 +109,19 @@ class PlaceRecognition:
         return similarity_score
 
     def train(self, datapath, checkpoint_path, train_iterations, online_training=False):
-        if (constants.PLACE_TOP_SIAMESE):
+        if (constants.PLACE_TOP_MODEL == constants.PLACE_TOP_SIAMESE):
             if (online_training):
                 return self.train_siamese_online(constants.VIZDOOM_DEFAULT_WAD, checkpoint_path, train_iterations)
             else:
                 return self.train_siamese(datapath, checkpoint_path, train_iterations)
         else:
-            return self.train_triplet(datapath, checkpoint_path, train_iterations)
+            if (online_training):
+                return self.train_triplet_online(constants.VIZDOOM_DEFAULT_WAD, checkpoint_path, train_iterations)
+            else:
+                return self.train_triplet(datapath, checkpoint_path, train_iterations)
 
     def eval(self, datapath):
-        if (constants.PLACE_TOP_SIAMESE):
+        if (constants.PLACE_TOP_MODEL == constants.PLACE_TOP_SIAMESE):
             return self.eval_siamese(datapath, checkpoint_path, train_iterations)
         else:
             return self.eval_triplet(datapath, checkpoint_path, train_iterations)
@@ -362,6 +365,103 @@ class PlaceRecognition:
 
         epoch_acc = (float(running_corrects) / float(len(data_loaders[phase].dataset))) * 100.0
         print('Accuracy: {}'.format(epoch_acc))
+
+    def train_triplet_online(self, wad, checkpoint_path, train_iterations):
+        criterion = torch.nn.MarginRankingLoss(margin=constants.TRAINING_PLACE_MARGIN)
+        optimizer = optim.SGD(list(filter(lambda p: p.requires_grad, self.tripletnet.parameters())), lr=constants.TRAINING_PLACE_LR, momentum=constants.TRAINING_PLACE_MOMENTUM)
+        exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=constants.TRAINING_PLACE_LR_SCHEDULER_SIZE, gamma=constants.TRAINING_PLACE_LR_SCHEDULER_GAMMA)
+ 
+        kwargs = {'num_workers': 8, 'pin_memory': False} if torch.cuda.is_available() else {}
+        train_dataset = OnlineVizDoomDataLoader(wad, locomotion=False, transform=self.array_preprocess)
+        val_dataset = OnlineVizDoomDataLoader(wad, locomotion=False, transform=self.array_preprocess)
+        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=constants.TRAINING_PLACE_BATCH, shuffle=True, **kwargs)
+        val_loader = torch.utils.data.DataLoader(val_dataset, batch_size=constants.TRAINING_PLACE_BATCH, shuffle=True, **kwargs)
+        data_loaders = { 'train': train_loader, 'val': val_loader }
+
+        since = time.time()
+
+        best_model_wts = self.model.state_dict()
+        best_acc = 0.0
+
+        for epoch in range(train_iterations):
+            train_dataset.collect(constants.DATA_COLLECTION_ONLINE_TRAINING_ROUNG_LENGTH)
+            val_dataset.collect(constants.DATA_COLLECTION_ONLINE_VALIDATING_ROUNG_LENGTH)
+
+            print('Epoch {}/{}'.format(epoch, train_iterations - 1))
+            print('-' * 10)
+
+            # Each epoch has a training and validation phase
+            for phase in ['train', 'val']:
+                if phase == 'train':
+                    exp_lr_scheduler.step()
+                    self.model.train(True)  # Set model to training mode
+                else:
+                    self.model.train(False)  # Set model to evaluate mode
+
+                running_loss = 0.0
+                running_corrects = 0
+
+                # Iterate over data.
+                for data in tqdm(data_loaders[phase]):
+                    anchor, positive, negative = data
+
+                    # wrap them in Variable
+                    if self.use_cuda:
+                        anchor, positive, negative = anchor.cuda(), positive.cuda(), negative.cuda()
+                    anchor, positive, negative = Variable(anchor), Variable(positive), Variable(negative)
+
+                    # zero the parameter gradients
+                    optimizer.zero_grad()
+
+                    # dist_a, dist_b, embedded_x, embedded_y, embedded_z = self.tripletnet(anchor, positive, negative) # eucludian dist
+                    ## 1 means, dist_a should be larger than dist_b
+                    # target = torch.FloatTensor(dist_a.size()).fill_(-1)
+
+                    similarity_a, similarity_b, embedded_x, embedded_y, embedded_z = self.tripletnet(anchor, positive, negative)
+                    # 1 means, similarity_a should be larger than similarity_b
+                    target = torch.FloatTensor(similarity_a.size()).fill_(1)
+                    if self.use_cuda:
+                        target = target.cuda()
+                    target = Variable(target)
+        
+                    # loss_triplet = criterion(dist_a, dist_b, target)
+                    loss_triplet = criterion(similarity_a, similarity_b, target)
+                    loss_embedd = embedded_x.norm(2) + embedded_y.norm(2) + embedded_z.norm(2)
+                    loss = loss_triplet + 0.001 * loss_embedd
+
+                    # backward + optimize only if in training phase
+                    if phase == 'train':
+                        loss.backward()
+                        optimizer.step()
+
+                    # statistics
+                    running_loss += loss.item()
+                    # running_corrects += torch.sum(dist_a < dist_b)
+                    running_corrects += torch.sum(similarity_a > (similarity_b + constants.TRAINING_PLACE_MARGIN))
+                    # running_corrects += torch.sum(similarity_a > similarity_b)
+
+                epoch_loss = (float(running_loss) / float(len(data_loaders[phase].dataset))) * 100.0
+                epoch_acc = (float(running_corrects) / float(len(data_loaders[phase].dataset))) * 100.0
+
+                print('{} Loss: {:.4f} Acc: {:.4f}'.format(
+                    phase, epoch_loss, epoch_acc))
+
+                # deep copy the model
+                if phase == 'val' and epoch_acc > best_acc:
+                    best_acc = epoch_acc
+                    best_model_wts = self.model.state_dict()
+                    print (checkpoint_path, epoch)
+                    self.save_model(checkpoint_path, epoch)
+
+            print()
+
+        time_elapsed = time.time() - since
+        print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
+        print('Best val Acc: {:4f}'.format(best_acc))
+
+        # load best model weights
+        self.model.load_state_dict(best_model_wts)
+        return self.model
 
     def train_siamese_online(self, wad, checkpoint_path, train_iterations):
         criterion = nn.CrossEntropyLoss()

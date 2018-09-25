@@ -241,11 +241,10 @@ class OnlineVizDoomDataLoader(torch.utils.data.Dataset):
         action = self.actions[index]
 
         future_addition_index = random.randint(1, constants.DATASET_MAX_ACTION_DISTANCE)
-        future_index = index + future_addition_index
-        if future_index >= len(self.actions)-2:
-            future_index = index + 1
+#        future_index = index + future_addition_index
+#        if future_index >= len(self.actions)-2:
+#            future_index = index + 1
 
-        """
         permitted_actions = [i for i in range(0, constants.LOCO_NUM_CLASSES)]
         for i in range(1, future_addition_index+1):
             future_index = index + i
@@ -268,7 +267,6 @@ class OnlineVizDoomDataLoader(torch.utils.data.Dataset):
                 permitted_actions.remove(constants.ACTION_MOVE_LEFT)
             elif (future_action == constants.ACTION_MOVE_LEFT and constants.ACTION_MOVE_RIGHT in permitted_actions):
                 permitted_actions.remove(constants.ACTION_MOVE_RIGHT)
-        """
 
         previous_index = index - 1
         if previous_index < 0:
@@ -297,13 +295,14 @@ class OnlineVizDoomDataLoader(torch.utils.data.Dataset):
         positive_index = index + positive_addition_index
         if positive_index >= len(self.actions):
             positive_index = index + 1
+
         # negative_index = random.randint(1, self.size-1)
         negative_ahead = None
         negative_behind = None
-        negative_index_ahead = index + constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MULTIPLIER * constants.MAX_ACTION_DISTANCE
-        negative_index_behind = index - constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MULTIPLIER * constants.MAX_ACTION_DISTANCE
+        negative_index_ahead = index + constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MULTIPLIER * constants.DATASET_MAX_ACTION_DISTANCE
+        negative_index_behind = index - constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MULTIPLIER * constants.DATASET_MAX_ACTION_DISTANCE
         if negative_index_ahead < len(self.actions):
-            negative_ahead = random.randint(negative_index_ahead, len(self.actions))
+            negative_ahead = random.randint(negative_index_ahead, len(self.actions)-1)
         if negative_index_behind >= 0:
             negative_behind = random.randint(0, negative_index_behind)
         if negative_ahead is None:
