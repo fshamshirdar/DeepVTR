@@ -77,7 +77,7 @@ class PlaceRecognition:
     def load_weights(self, checkpoint_path):
         checkpoint = torch.load(checkpoint_path)
         if (constants.PLACE_TOP_MODEL == constants.PLACE_TOP_SIAMESE):
-            self.siamesetnet.load_state_dict(checkpoint['state_dict'])
+            self.siamesenet.load_state_dict(checkpoint['state_dict'])
         else: # triplet
             self.model.load_state_dict(checkpoint['state_dict'])
 
@@ -97,12 +97,17 @@ class PlaceRecognition:
         if self.use_cuda:
             image_tensor = image_tensor.cuda()
         image_variable = Variable(image_tensor)
-        return self.model(image_variable, flatten) # get representation
+        # return self.model(image_variable, flatten) # get representation
+        return self.model(image_variable) # get representation
 
     def compute_similarity_score(self, rep1, rep2):
         if (constants.PLACE_TOP_MODEL == constants.PLACE_TOP_SIAMESE):
+           if (self.use_cuda):
+               rep1 = rep1.cuda()
+               rep2 = rep2.cuda()
            similarity_score = self.siamesenet(rep1, rep2, embedding_required=False)
-           similarity_score = similarity_score[0][1] # positive similarity
+           similarity_score = F.softmax(similarity_score)
+           similarity_score = similarity_score[0][1].data.cpu().item() # positive similarity
         else: # triplet
            similarity_score = F.cosine_similarity(rep1, rep2)
            similarity_score = similarity_score[0]

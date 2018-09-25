@@ -58,6 +58,8 @@ if __name__ == "__main__":
     parser.add_argument('--online_training', dest='online_training', action='store_true')
     parser.add_argument('--teach_dump', type=str, help='Teach dump commands file')
     parser.add_argument('--wad', type=str, default='vizdoom/Train/D3_battle_navigation_split.wad_manymaps_test.wad', help='WAD path')
+    parser.add_argument('--lmp', type=str, help='WAD path')
+    parser.add_argument('--recording', dest='recording', action='store_true')
     parser.add_argument('--dump_memory_path', type=str, help='Dump memory path')
 
     args = parser.parse_args()
@@ -125,8 +127,11 @@ if __name__ == "__main__":
     elif args.mode == 'multi_vizdoom_agent':
         placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
         navigation = Navigation(args.navigation_checkpoint, use_cuda)
-        multiVizDoomAgent = MultiVizDoomAgent(placeRecognition, navigation, args.wad)
-        multiVizDoomAgent.run()
+        multiVizDoomAgent = MultiVizDoomAgent(placeRecognition, navigation, args.wad, args.lmp)
+        if (args.recording):
+            multiVizDoomAgent.record()
+        else:
+            multiVizDoomAgent.run()
     elif args.mode == 'multi_airsim_agent':
         placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
         navigation = Navigation(args.navigation_checkpoint, use_cuda)

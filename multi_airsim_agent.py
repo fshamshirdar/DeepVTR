@@ -22,7 +22,6 @@ class AirSimSingleAgent:
         self.goal = None
         self.init = self.env.reset()
         self.cycle = 0
-        self.sequence = deque(maxlen=constants.SEQUENCE_LENGTH)
         self.current_state = None
         self.previous_action = 0
         self.placeRecognition.model.eval()
@@ -40,7 +39,7 @@ class AirSimSingleAgent:
         self.init = state
         self.current_state = state
         self.temporary_trail = [state]
-        self.sequence = deque(maxlen=constants.SEQUENCE_LENGTH)
+        self.trail.clear_sequence()
         return state
 
     def goal_reached(self, pose):
@@ -51,10 +50,9 @@ class AirSimSingleAgent:
 
     def search(self):
         print ("pose: ", self.env.get_position_orientation())
-        # index, score, velocity = self.trail.find_closest_waypoint(self.sequence)
-        index, score, velocity = self.trail.find_best_waypoint(self.sequence)
-        # index, score, velocity = self.trail.find_most_similar_waypoint(self.sequence)
-        # index = -1
+        # index, score, velocity = self.trail.find_closest_waypoint(self.current_state)
+        index, score, velocity = self.trail.find_best_waypoint(self.current_state)
+        # index, score, velocity = self.trail.find_most_similar_waypoint(self.current_state)
         if (index == -1): # or random.random() < constants.MULTI_AGENT_RANDOM_MOVEMENT_CHANCE): # TODO
             # action = random.randint(0, constants.LOCO_NUM_CLASSES-1)
             action = self.test_actions[self.test_action_id]
@@ -89,9 +87,6 @@ class AirSimSingleAgent:
 
         self.previous_action = action
         self.current_state = next_state
-        if (self.trail.len() > 0):
-            next_rep = self.placeRecognition.forward(next_state)
-            self.sequence.append(next_rep)
         self.temporary_trail.append(next_state)
         return info
 
