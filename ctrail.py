@@ -58,11 +58,14 @@ class Trail:
             # waypoint.density = 1.0 - (constants.TRAIL_EVAPORATION_COEFFICIENT_PER_CYCLE * (cycle - waypoint.created_at));
             self.pathes[i].density -= constants.TRAIL_EVAPORATION_COEFFICIENT_RATE
             if (self.pathes[i].density < 0):
+                self.memory_size -= len(self.pathes[i].waypoints)
                 del self.pathes[i]
             else:
                 i += 1
 
     def draw_waypoints(self):
+        plt.clf()
+
         x, y, z = [], [], []
         for path in self.pathes:
             for waypoint in path.waypoints:
@@ -175,7 +178,7 @@ class Trail:
             else:
                 path_results = []
 
-            # print ('results: ', threshold, path_results)
+            print ('results: ', threshold, path_results)
             results.append(path_results)
             matched_indexes.append(path_matched_indexes)
 
