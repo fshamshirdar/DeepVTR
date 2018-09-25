@@ -5,8 +5,8 @@ import torch.nn.functional as F
 from torchvision import transforms
 from torch.autograd import Variable
 
-# from trail import Trail
-from ctrail import Trail
+from trail import Trail
+# from ctrail import Trail
 from place_recognition import PlaceRecognition
 from navigation import Navigation
 import constants

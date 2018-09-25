@@ -53,10 +53,14 @@ class Trail:
         self.pathes = []
 
     def update_waypoints(self):
-        for index, path in enumerate(self.pathes):
-            path.density -= constants.TRAIL_EVAPORATION_COEFFICIENT_RATE
-            if (path.density < 0):
-                del self.pathes[index]
+        i = 0
+        while i < len(self.pathes):
+            # waypoint.density = 1.0 - (constants.TRAIL_EVAPORATION_COEFFICIENT_PER_CYCLE * (cycle - waypoint.created_at));
+            self.pathes[i].density -= constants.TRAIL_EVAPORATION_COEFFICIENT_RATE
+            if (self.pathes[i].density < 0):
+                del self.pathes[i]
+            else:
+                i += 1
 
     def draw_waypoints(self):
         x, y, z = [], [], []
@@ -94,7 +98,7 @@ class Trail:
         for path_id in range(len(self.pathes)):
             # print (results[path_id])
             for item in results[path_id]:
-                if (self.pathes[path_id].waypoints[item[0]].steps_to_goal < min_steps_to_goal):
+                if (self.pathes[path_id].waypoints[item[0]].steps_to_goal <= min_steps_to_goal):
                     min_steps_to_goal = self.pathes[path_id].waypoints[item[0]].steps_to_goal
                     best_state = self.pathes[path_id].waypoints[item[0]].state
                     best_score = min_steps_to_goal
@@ -164,7 +168,7 @@ class Trail:
                         if (index not in similarity_dict):
                             # print ('---> index not in similarity dict: ', index, similarity_dict.keys())
                             break
-                        if (index not in path_matched_indexes and similarity_dict[index] > constants.TRAIL_LOOKAHEAD_SIMILARITY_THRESHOLD and index not in path_results):
+                        if (index not in path_matched_indexes and similarity_dict[index] > constants.TRAIL_LOOKAHEAD_SIMILARITY_THRESHOLD):
                             path_results.append((index, similarity_dict[index], 0.))
                             path_matched_indexes.append(index)
                             # print ("lookahead: ", index)
