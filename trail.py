@@ -222,6 +222,8 @@ class Trail:
             for lookahead_base_index in matched_indexes_copy:
                 for i in range(constants.TRAIL_LOOKAHEAD_MIN_INDEX, constants.TRAIL_LOOKAHEAD_MAX_INDEX):
                     index = lookahead_base_index + i
+                    if (index < 0 or index > memory_size):
+                        break
                     if (index not in similarity_dict):
                         # print ('---> index not in similarity dict: ', index, similarity_dict.keys())
                         break
