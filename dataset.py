@@ -241,10 +241,12 @@ class OnlineVizDoomDataLoader(torch.utils.data.Dataset):
         action = self.actions[index]
 
         future_addition_index = random.randint(1, constants.DATASET_MAX_ACTION_DISTANCE)
+        ## Without action restrictions
 #        future_index = index + future_addition_index
 #        if future_index >= len(self.actions)-2:
 #            future_index = index + 1
 
+        ## With action restrictions
         permitted_actions = [i for i in range(0, constants.LOCO_NUM_CLASSES)]
         for i in range(1, future_addition_index+1):
             future_index = index + i
@@ -267,6 +269,7 @@ class OnlineVizDoomDataLoader(torch.utils.data.Dataset):
                 permitted_actions.remove(constants.ACTION_MOVE_LEFT)
             elif (future_action == constants.ACTION_MOVE_LEFT and constants.ACTION_MOVE_RIGHT in permitted_actions):
                 permitted_actions.remove(constants.ACTION_MOVE_RIGHT)
+        ## End conditions
 
         previous_index = index - 1
         if previous_index < 0:

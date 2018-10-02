@@ -128,10 +128,10 @@ class VizDoomSingleAgent:
     def global_random_search(self):
         repeat = 1
         permitted_actions = [i for i in range(0, constants.LOCO_NUM_CLASSES)]
-        permitted_actions.remove(constants.ACTION_MOVE_BACKWARD)
+        # permitted_actions.remove(constants.ACTION_MOVE_BACKWARD)
         permitted_actions.remove(constants.ACTION_MOVE_FORWARD)
-        permitted_actions.remove(constants.ACTION_MOVE_LEFT)
-        permitted_actions.remove(constants.ACTION_MOVE_RIGHT)
+        # permitted_actions.remove(constants.ACTION_MOVE_LEFT)
+        # permitted_actions.remove(constants.ACTION_MOVE_RIGHT)
         action = random.choice(permitted_actions)
 
         ongoing_random_action = [action for i in range(random.randint(1, 5))]
@@ -144,10 +144,10 @@ class VizDoomSingleAgent:
     def local_random_search(self):
         repeat = 1
         permitted_actions = [i for i in range(0, constants.LOCO_NUM_CLASSES)]
-        permitted_actions.remove(constants.ACTION_MOVE_BACKWARD)
+        # permitted_actions.remove(constants.ACTION_MOVE_BACKWARD)
         permitted_actions.remove(constants.ACTION_MOVE_FORWARD)
-        permitted_actions.remove(constants.ACTION_MOVE_LEFT)
-        permitted_actions.remove(constants.ACTION_MOVE_RIGHT)
+        # permitted_actions.remove(constants.ACTION_MOVE_LEFT)
+        # permitted_actions.remove(constants.ACTION_MOVE_RIGHT)
         action = random.choice(permitted_actions)
 
         ongoing_random_action = [action for i in range(random.randint(1, 5))]
