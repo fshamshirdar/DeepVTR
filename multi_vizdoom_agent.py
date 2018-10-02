@@ -134,8 +134,8 @@ class VizDoomSingleAgent:
         permitted_actions.remove(constants.ACTION_MOVE_RIGHT)
         action = random.choice(permitted_actions)
 
-        ongoing_random_action = [action for i in range(random.randint(1, 5))]
-        ongoing_forward_action = [constants.ACTION_MOVE_FORWARD for i in range(random.randint(3, 7))]
+        ongoing_random_action = [action for i in range(random.randint(2, 7))]
+        ongoing_forward_action = [constants.ACTION_MOVE_FORWARD for i in range(random.randint(2, 7))]
         self.random_ongoing_actions += ongoing_random_action
         self.random_ongoing_actions += ongoing_forward_action
         
@@ -150,8 +150,8 @@ class VizDoomSingleAgent:
         permitted_actions.remove(constants.ACTION_MOVE_RIGHT)
         action = random.choice(permitted_actions)
 
-        ongoing_random_action = [action for i in range(random.randint(1, 5))]
-        ongoing_forward_action = [constants.ACTION_MOVE_FORWARD for i in range(random.randint(1, 7))]
+        ongoing_random_action = [action for i in range(random.randint(2, 7))]
+        ongoing_forward_action = [constants.ACTION_MOVE_FORWARD for i in range(random.randint(2, 7))]
         self.random_ongoing_actions += ongoing_random_action
         self.random_ongoing_actions += ongoing_forward_action
         
@@ -299,6 +299,7 @@ class MultiVizDoomAgent(MultiAgent):
         # selected_map = (constants.VIZDOOM_MAP_NAME_TEMPLATE % random.randint(constants.VIZDOOM_MIN_TEST_MAP_INDEX, constants.VIZDOOM_MAX_TEST_MAP_INDEX))
         selected_map = 'map02'
         for i in range(constants.MULTI_NUM_AGENTS):
+            self.agents[i].set_seed(self.seed)
             self.agents[i].set_map(selected_map)
             if (i == 0): # only once
                 self.agents[i].replay_episode(self.lmp)
