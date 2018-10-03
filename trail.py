@@ -30,8 +30,14 @@ class Trail:
                 steps_to_goal += 1
 
         for waypoint in waypoints:
-            rep = self.placeRecognition.forward(waypoint['state'])
-            self.waypoints.append(Waypoint(state=waypoint['state'], rep=rep.data.cpu(), position=waypoint['position'], created_at=created_at, density=1.0, steps_to_goal=steps_to_goal)) # temporary for cpu()
+            if (self.placeRecognition is None): # ground-base trail
+                rep = None
+            else:
+                rep = self.placeRecognition.forward(waypoint['state'])
+                rep = rep.data.cpu() # temporary for cpu()
+
+            self.waypoints.append(Waypoint(state=waypoint['state'], rep=rep, position=waypoint['position'], created_at=created_at, density=1.0, steps_to_goal=steps_to_goal))
+
             # steps_to_goal -= 1
             if (waypoint['action'] not in [constants.ACTION_TURN_RIGHT, constants.ACTION_TURN_LEFT]):
                 steps_to_goal -= 1
@@ -337,19 +343,51 @@ class Trail:
 
         return results
 
-    def ground_relocalize(self, position):
+    def find_closest_ground_waypoint(self, pose, backward=False):
+        results = self.ground_relocalize(pose, backward) # results contains (index, similaity, velocity)
+
+        best_state = None
+        best_position = None
+        best_score = 0.
+        best_index = -1
+
+        min_steps_to_goal = 10000 
+        for item in results:
+            if (self.waypoints[item[0]].steps_to_goal <= min_steps_to_goal):
+                min_steps_to_goal = self.waypoints[item[0]].steps_to_goal
+                best_state = self.waypoints[item[0]].state
+                best_position = self.waypoints[item[0]].position
+                best_score = min_steps_to_goal
+                best_index = item[0]
+
+        print ("closest match: ", best_score, best_index)
+        return best_state, best_position, best_score, results
+
+    def ground_relocalize(self, position, backward=False):
+        results = []
         memory_size = len(self.waypoints)
-        min_distance = 10000.
-        matched_index = -1
         for index in range(memory_size):
             distance = math.sqrt((position[0] - self.waypoints[index].position[0]) ** 2 +
                                  (position[1] - self.waypoints[index].position[1]) ** 2 +
                                  (position[2] - self.waypoints[index].position[2]) ** 2)
-            if (distance < min_distance):
-                min_distance = distance
-                matched_index = index
+            if (distance < constants.TRAIL_GROUND_RADIUS_THRESHOLD):
+                results.append((index, distance))
 
-        return matched_index, min_distance, 0
+        return results
+        
+        ### closest point
+        # memory_size = len(self.waypoints)
+        # min_distance = 10000.
+        # matched_index = -1
+        # for index in range(memory_size):
+        #     distance = math.sqrt((position[0] - self.waypoints[index].position[0]) ** 2 +
+        #                          (position[1] - self.waypoints[index].position[1]) ** 2 +
+        #                          (position[2] - self.waypoints[index].position[2]) ** 2)
+        #     if (distance < min_distance):
+        #         min_distance = distance
+        #         matched_index = index
+        # 
+        # return matched_index, min_distance, 0
 
     def ground_lookahead_relocalize(self, position):
         memory_size = len(self.waypoints)

@@ -16,6 +16,7 @@ from dqn_agent_single import DQNAgentSingle
 from airsim_agent import AirSimAgent
 from vizdoom_agent import VizDoomAgent
 from multi_vizdoom_agent import MultiVizDoomAgent
+from multi_vizdoom_ground_agent import MultiVizDoomGroundAgent
 from multi_airsim_agent import MultiAirSimAgent
 # from bebop_agent import BebopAgent
 # from pioneer_agent import PioneerAgent
@@ -27,7 +28,7 @@ import constants
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='')
 
-    parser.add_argument('--mode', default='train', type=str, help='support option: airsim_collect/vizdoom_collect/train_place/train_nav/eval_place/eval_nav/test_nav/train_placenav/eval_placenav/dqn_agent/dqn_agent_single/airsim_agent/bebop_agent/pioneer_agent/vizdoom_agent/multi_vizdoom_agent/multi_airsim_agent')
+    parser.add_argument('--mode', default='train', type=str, help='support option: airsim_collect/vizdoom_collect/train_place/train_nav/eval_place/eval_nav/test_nav/train_placenav/eval_placenav/dqn_agent/dqn_agent_single/airsim_agent/bebop_agent/pioneer_agent/vizdoom_agent/multi_vizdoom_agent/multi_vizdoom_ground_agent/multi_airsim_agent')
     parser.add_argument('--datapath', default='dataset', type=str, help='path to dataset')
     parser.add_argument('--env', default='Pendulum-v0', type=str, help='open-ai gym environment')
     parser.add_argument('--collect_index', default=0, type=int, help='collect intial index')
@@ -132,6 +133,12 @@ if __name__ == "__main__":
             multiVizDoomAgent.record()
         else:
             multiVizDoomAgent.run()
+    elif args.mode == 'multi_vizdoom_ground_agent':
+        multiVizDoomGroundAgent = MultiVizDoomGroundAgent(args.wad, args.lmp)
+        if (args.recording):
+            multiVizDoomGroundAgent.record()
+        else:
+            multiVizDoomGroundAgent.run()
     elif args.mode == 'multi_airsim_agent':
         placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
         navigation = Navigation(args.navigation_checkpoint, use_cuda)
