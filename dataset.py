@@ -11,13 +11,17 @@ from vizdoom import *
 import torch.utils.data
 import torchvision.transforms as transforms
 
+TYPE_LOCOMOTION = 1
+TYPE_PLACE_RECOGNITION = 2
+TYPE_PLACE_NAVIGATION = 3
+
 def default_image_loader(path):
     return Image.open(path).convert('RGB')
 
 class RecordedAirSimDataLoader(torch.utils.data.Dataset):
-    def __init__(self, datapath, locomotion=True, transform=None, validation=False, loader=default_image_loader):
+    def __init__(self, datapath, datatype, transform=None, validation=False, loader=default_image_loader):
         self.base_path = datapath
-        self.is_locomotion = locomotion
+        self.datatype = datatype
         self.transform = transform
         self.loader = loader
         self.indexes = []
@@ -38,10 +42,14 @@ class RecordedAirSimDataLoader(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         round_index, index = self.getIndex(index)
-        if (self.is_locomotion):
+        if (self.datatype == TYPE_LOCOMOTION):
             return self.getLocomotionItem(round_index, index)
-        else:
+        elif (self.datatype == TYPE_PLACE_RECOGNITION):
             return self.getPlaceItem(round_index, index)
+        elif (self.datatype == TYPE_PLACE_NAVIGATION):
+            return self.getPlaceNavItem(round_index, index)
+        else:
+            return None
 
     def getIndex(self, index):
         round_index = 0
@@ -109,17 +117,25 @@ class RecordedAirSimDataLoader(torch.utils.data.Dataset):
         positive_index = index + positive_addition_index
         if positive_index >= len(self.actions[round_index]):
             positive_index = index + 1
+
         # negative_index = random.randint(1, self.size-1)
-        negative_index_ahead = index + random.randint(constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MIN_INDEX, constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MAX_INDEX)
-        negative_index_behind = index - random.randint(constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MIN_INDEX, constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MAX_INDEX)
-        if negative_index_ahead >= len(self.actions[round_index]):
-            negative_index = negative_index_behind
-        elif negative_index_behind < 0:
-            negative_index = negative_index_ahead
-        elif random.random() < 0.5:
-            negative_index = negative_index_behind
+        negative_ahead = None
+        negative_behind = None
+        negative_index_ahead = index + constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MULTIPLIER * constants.DATASET_MAX_ACTION_DISTANCE
+        negative_index_behind = index - constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MULTIPLIER * constants.DATASET_MAX_ACTION_DISTANCE
+        if negative_index_ahead < len(self.actions[round_index]):
+            negative_ahead = random.randint(negative_index_ahead, len(self.actions[round_index])-1)
+        if negative_index_behind >= 0:
+            negative_behind = random.randint(0, negative_index_behind)
+        if negative_ahead is None:
+            negative_index = negative_behind
+        elif negative_behind is None:
+            negative_index = negative_ahead
         else:
-            negative_index = negative_index_ahead
+            if random.random() < 0.5:
+                negative_index = negative_behind
+            else:
+                negative_index = negative_ahead
 
         anchor = self.loader(os.path.join(self.base_path, self.indexes[round_index], str(index)+".png"))
         positive = self.loader(os.path.join(self.base_path, self.indexes[round_index], str(positive_index)+".png"))
@@ -140,17 +156,23 @@ class RecordedAirSimDataLoader(torch.utils.data.Dataset):
                 pair_index = index + 1
         else: # negative
             class_value = 0
-            # negative_index = random.randint(1, self.size-1)
-            negative_index_ahead = index + random.randint(constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MIN_INDEX, constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MAX_INDEX)
-            negative_index_behind = index - random.randint(constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MIN_INDEX, constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MAX_INDEX)
-            if negative_index_ahead >= len(self.actions[round_index]):
-                pair_index = negative_index_behind
-            elif negative_index_behind < 0:
-                pair_index = negative_index_ahead
-            elif random.random() < 0.5:
-                pair_index = negative_index_behind
+            negative_ahead = None
+            negative_behind = None
+            negative_index_ahead = index + constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MULTIPLIER * constants.DATASET_MAX_ACTION_DISTANCE
+            negative_index_behind = index - constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MULTIPLIER * constants.DATASET_MAX_ACTION_DISTANCE
+            if negative_index_ahead < len(self.actions[round_index]):
+                negative_ahead = random.randint(negative_index_ahead, len(self.actions[round_index])-1)
+            if negative_index_behind >= 0:
+                negative_behind = random.randint(0, negative_index_behind)
+            if negative_ahead is None:
+                pair_index = negative_behind
+            elif negative_behind is None:
+                pair_index = negative_ahead
             else:
-                pair_index = negative_index_ahead
+                if random.random() < 0.5:
+                    pair_index = negative_behind
+                else:
+                    pair_index = negative_ahead
 
         anchor = self.loader(os.path.join(self.base_path, self.indexes[round_index], str(index)+".png"))
         pair = self.loader(os.path.join(self.base_path, self.indexes[round_index], str(pair_index)+".png"))
@@ -160,6 +182,71 @@ class RecordedAirSimDataLoader(torch.utils.data.Dataset):
 
         # state = np.concatenate([anchor, pair], axis=0)
         return anchor, pair, class_value
+
+    def getPlaceNavItem(self, round_index, index):
+        action = self.actions[round_index][index]
+
+        future_addition_index = random.randint(1, constants.DATASET_MAX_ACTION_DISTANCE)
+        #future_index = index + future_addition_index
+        #if future_index >= len(self.actions[round_index]):
+        #    future_index = index + 1
+
+        permitted_actions = [i for i in range(0, constants.LOCO_NUM_CLASSES)]
+        for i in range(1, future_addition_index+1):
+            future_index = index + i
+            if (future_index >= len(self.actions[round_index])):
+                future_index -= 1
+                break
+            future_action = self.actions[round_index][future_index]
+            if (future_action not in permitted_actions):
+                future_index -= 1
+                break
+            if (future_action == constants.ACTION_MOVE_FORWARD and constants.ACTION_MOVE_BACKWARD in permitted_actions):
+                permitted_actions.remove(constants.ACTION_MOVE_BACKWARD)
+            elif (future_action == constants.ACTION_MOVE_BACKWARD and constants.ACTION_MOVE_FORWARD in permitted_actions):
+                permitted_actions.remove(constants.ACTION_MOVE_FORWARD)
+            elif (future_action == constants.ACTION_TURN_RIGHT and constants.ACTION_TURN_LEFT in permitted_actions):
+                permitted_actions.remove(constants.ACTION_TURN_LEFT)
+            elif (future_action == constants.ACTION_TURN_LEFT and constants.ACTION_TURN_RIGHT in permitted_actions):
+                permitted_actions.remove(constants.ACTION_TURN_RIGHT)
+            elif (future_action == constants.ACTION_MOVE_RIGHT and constants.ACTION_MOVE_LEFT in permitted_actions):
+                permitted_actions.remove(constants.ACTION_MOVE_LEFT)
+            elif (future_action == constants.ACTION_MOVE_LEFT and constants.ACTION_MOVE_RIGHT in permitted_actions):
+                permitted_actions.remove(constants.ACTION_MOVE_RIGHT)
+
+        # negative_index = random.randint(1, self.size-1)
+        negative_ahead = None
+        negative_behind = None
+        negative_index_ahead = index + constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MULTIPLIER * constants.DATASET_MAX_ACTION_DISTANCE
+        negative_index_behind = index - constants.TRAINING_PLACE_NEGATIVE_SAMPLE_MULTIPLIER * constants.DATASET_MAX_ACTION_DISTANCE
+        if negative_index_ahead < len(self.actions[round_index]):
+            negative_ahead = random.randint(negative_index_ahead, len(self.actions[round_index])-1)
+        if negative_index_behind >= 0:
+            negative_behind = random.randint(0, negative_index_behind)
+        if negative_ahead is None:
+            negative_index = negative_behind
+        elif negative_behind is None:
+            negative_index = negative_ahead
+        else:
+            if random.random() < 0.5:
+                negative_index = negative_behind
+            else:
+                negative_index = negative_ahead
+
+        current_state = self.loader(os.path.join(self.base_path, self.indexes[round_index], str(index)+".png"))
+        # previous_state = self.loader(os.path.join(self.base_path, self.indexes[round_index], str(previous_index)+".png"))
+        future_state = self.loader(os.path.join(self.base_path, self.indexes[round_index], str(future_index)+".png"))
+        negative_state = self.loader(os.path.join(self.base_path, self.indexes[round_index], str(negative_index)+".png"))
+        if self.transform is not None:
+            current_state = self.transform(current_state)
+            # previous_state = self.transform(previous_state)
+            future_state = self.transform(future_state)
+            negative_state = self.transform(negative_state)
+
+        # state = np.concatenate([previous_state, current_state, future_state], axis=0)
+        packed_state = np.concatenate([current_state, future_state], axis=0)
+
+        return current_state, future_state, negative_state, packed_state, action
 
     def __len__(self):
         return self.size
@@ -503,7 +590,7 @@ if __name__ == "__main__":
     from tqdm import tqdm
 
     kwargs = {'num_workers': 1, 'pin_memory': True} if torch.cuda.is_available() else {}
-    train_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader("dataset/", locomotion=True), batch_size=1, shuffle=False, **kwargs)
+    train_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader("dataset/", datatype=TYPE_LOCOMOTION), batch_size=1, shuffle=False, **kwargs)
     for data in tqdm(train_loader):
         state, action = data
         print (state.shape)

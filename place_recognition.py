@@ -18,6 +18,7 @@ from tripletnet import TripletNet
 from siamesenet import SiameseNet
 from dataset import RecordedAirSimDataLoader
 from dataset import OnlineVizDoomDataLoader
+import dataset
 import constants
 
 class Replicate(nn.Module):
@@ -138,8 +139,8 @@ class PlaceRecognition:
         exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=constants.TRAINING_PLACE_LR_SCHEDULER_SIZE, gamma=constants.TRAINING_PLACE_LR_SCHEDULER_GAMMA)
  
         kwargs = {'num_workers': 8, 'pin_memory': True} if torch.cuda.is_available() else {}
-        train_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader(datapath, locomotion=False, transform=self.preprocess), batch_size=constants.TRAINING_PLACE_BATCH, shuffle=True, **kwargs)
-        val_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader(datapath, locomotion=False, transform=self.preprocess, validation=True), batch_size=constants.TRAINING_PLACE_BATCH, shuffle=True, **kwargs)
+        train_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader(datapath, datatype=dataset.TYPE_PLACE_RECOGNITION, transform=self.preprocess), batch_size=constants.TRAINING_PLACE_BATCH, shuffle=True, **kwargs)
+        val_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader(datapath, datatype=dataset.TYPE_PLACE_RECOGNITION, transform=self.preprocess, validation=True), batch_size=constants.TRAINING_PLACE_BATCH, shuffle=True, **kwargs)
         data_loaders = { 'train': train_loader, 'val': val_loader }
 
         since = time.time()
@@ -225,7 +226,7 @@ class PlaceRecognition:
 
     def eval_triplet(self, datapath):
         kwargs = {'num_workers': 8, 'pin_memory': True} if torch.cuda.is_available() else {}
-        data_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader(datapath, locomotion=False, transform=self.preprocess, validation=True), batch_size=constants.TRAINING_PLACE_BATCH, shuffle=True, **kwargs)
+        data_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader(datapath, datatype=dataset.TYPE_PLACE_RECOGNITION, transform=self.preprocess, validation=True), batch_size=constants.TRAINING_PLACE_BATCH, shuffle=True, **kwargs)
         criterion = torch.nn.MarginRankingLoss(margin=constants.TRAINING_PLACE_MARGIN)
 
         running_loss = 0.0
@@ -268,8 +269,8 @@ class PlaceRecognition:
         exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=constants.TRAINING_PLACE_LR_SCHEDULER_SIZE, gamma=constants.TRAINING_PLACE_LR_SCHEDULER_GAMMA)
  
         kwargs = {'num_workers': 8, 'pin_memory': True} if torch.cuda.is_available() else {}
-        train_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader(datapath, locomotion=False, transform=self.preprocess), batch_size=constants.TRAINING_PLACE_BATCH, shuffle=True, **kwargs)
-        val_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader(datapath, locomotion=False, transform=self.preprocess, validation=True), batch_size=constants.TRAINING_PLACE_BATCH, shuffle=True, **kwargs)
+        train_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader(datapath, datatype=dataset.TYPE_PLACE_RECOGNITION, transform=self.preprocess), batch_size=constants.TRAINING_PLACE_BATCH, shuffle=True, **kwargs)
+        val_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader(datapath, datatype=dataset.TYPE_PLACE_RECOGNITION, transform=self.preprocess, validation=True), batch_size=constants.TRAINING_PLACE_BATCH, shuffle=True, **kwargs)
         data_loaders = { 'train': train_loader, 'val': val_loader }
 
         since = time.time()
@@ -349,7 +350,7 @@ class PlaceRecognition:
 
     def eval_siamese(self, datapath):
         kwargs = {'num_workers': 8, 'pin_memory': True} if torch.cuda.is_available() else {}
-        data_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader(datapath, locomotion=False, transform=self.preprocess, validation=True), batch_size=constants.TRAINING_PLACE_BATCH, shuffle=True, **kwargs)
+        data_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader(datapath, datatype=dataset.TYPE_PLACE_RECOGNITION, transform=self.preprocess, validation=True), batch_size=constants.TRAINING_PLACE_BATCH, shuffle=True, **kwargs)
 
         running_corrects = 0
         for data in tqdm(data_loader):

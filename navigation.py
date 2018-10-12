@@ -18,6 +18,7 @@ from vizdoom import *
 
 from dataset import RecordedAirSimDataLoader
 from dataset import OnlineVizDoomDataLoader
+import dataset
 import constants
 
 class Navigation:
@@ -132,8 +133,8 @@ class Navigation:
         exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=constants.TRAINING_LOCO_LR_SCHEDULER_SIZE, gamma=constants.TRAINING_LOCO_LR_SCHEDULER_GAMMA)
  
         kwargs = {'num_workers': 8, 'pin_memory': True} if torch.cuda.is_available() else {}
-        train_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader(datapath, locomotion=True, transform=self.preprocess), batch_size=constants.TRAINING_LOCO_BATCH, shuffle=True, **kwargs)
-        val_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader(datapath, locomotion=True, transform=self.preprocess, validation=True), batch_size=constants.TRAINING_LOCO_BATCH, shuffle=True, **kwargs)
+        train_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader(datapath, datatype=dataset.TYPE_LOCOMOTION, transform=self.preprocess), batch_size=constants.TRAINING_LOCO_BATCH, shuffle=True, **kwargs)
+        val_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader(datapath, datatype=dataset.TYPE_LOCOMOTION, transform=self.preprocess, validation=True), batch_size=constants.TRAINING_LOCO_BATCH, shuffle=True, **kwargs)
         data_loaders = { 'train': train_loader, 'val': val_loader }
 
         since = time.time()
@@ -307,7 +308,7 @@ class Navigation:
 
     def eval(self, datapath):
         kwargs = {'num_workers': 1, 'pin_memory': True} if torch.cuda.is_available() else {}
-        data_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader(datapath, locomotion=True, transform=self.preprocess, validation=True), batch_size=constants.TRAINING_LOCO_BATCH, shuffle=True, **kwargs)
+        data_loader = torch.utils.data.DataLoader(RecordedAirSimDataLoader(datapath, datatype=dataset.TYPE_LOCOMOTION, transform=self.preprocess, validation=True), batch_size=constants.TRAINING_LOCO_BATCH, shuffle=True, **kwargs)
 
         running_corrects = 0
         for data in tqdm(data_loader):

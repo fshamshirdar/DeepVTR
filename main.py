@@ -22,7 +22,7 @@ from multi_airsim_agent import MultiAirSimAgent
 # from pioneer_agent import PioneerAgent
 from place_recognition import PlaceRecognition
 from navigation import Navigation
-# from placenav import PlaceNavigation
+from placenav import PlaceNavigation
 import constants
 
 if __name__ == "__main__":
@@ -87,14 +87,14 @@ if __name__ == "__main__":
     elif args.mode == 'test_nav':
         navigation = Navigation(args.navigation_checkpoint, use_cuda)
         navigation.test('current.png', 'future.png')
-#    elif args.mode == 'train_placenav':
-#        placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
-#        placeNav = PlaceNavigation(placeRecognition, args.placenav_checkpoint, use_cuda)
-#        placeNav.train(args.datapath, args.checkpoint_path, args.train_iter)
-#    elif args.mode == 'eval_placenav':
-#        placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
-#        placeNav = PlaceNavigation(placeRecognition, args.placenav_checkpoint, use_cuda)
-#        placeNav.train(args.datapath, args.checkpoint_path, args.train_iter)
+    elif args.mode == 'train_placenav':
+        placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
+        placeNav = PlaceNavigation(placeRecognition, args.placenav_checkpoint, use_cuda)
+        placeNav.train(args.datapath, args.checkpoint_path, args.train_iter)
+    elif args.mode == 'eval_placenav':
+        placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
+        placeNav = PlaceNavigation(placeRecognition, args.placenav_checkpoint, use_cuda)
+        placeNav.train(args.datapath, args.checkpoint_path, args.train_iter)
     elif args.mode == 'dqn_agent':
         placeRecognition = PlaceRecognition(args.place_checkpoint, use_cuda)
         navigation = Navigation(args.navigation_checkpoint, use_cuda)
