@@ -189,16 +189,13 @@ class DQNAgent(Agent):
             print ("cannot find goal")
             return
 
-        sequence = deque(maxlen=constants.SEQUENCE_LENGTH)
-
         current_state = self.env.reset()
         previous_state = current_state
-        sequence.append(current_state)
         info = self.env.get_position_orientation()
         position = (info['x_pos'], info['y_pos'], info['z_pos'], info['yaw'])
         episode_step = 0
         while (True):
-            matched_index, similarity_score, best_velocity = self.sptm.relocalize(sequence)
+            matched_index, similarity_score, best_velocity = self.sptm.relocalize(current_state)
 #            matched_index, similarity_score, best_velocity = self.sptm.ground_relocalize(position)
 #            matched_index, similarity_score, best_velocity = self.sptm.ground_lookahead_relocalize(position)
 
@@ -229,7 +226,6 @@ class DQNAgent(Agent):
             previous_state = current_state.copy()
             current_state = next_state.copy()
             position = next_position
-            sequence.append(current_state)
             if (done):
                 break
             self.step = self.step + 1

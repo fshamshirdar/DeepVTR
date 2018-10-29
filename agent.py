@@ -33,7 +33,9 @@ class Agent:
     def path_lookahead(self, previous_state, current_state, path):
         selected_action, selected_prob, selected_future_state, selected_index = None, None, None, 0
         i = 1
-        for i in range(1, len(path)):
+        # for i in range(1, len(path)):
+        lookahead_len = min(constants.ACTION_LOOKAHEAD_LEN, len(path))
+        for i in range(1, lookahead_len):
             future_state = self.sptm.memory[path[i]].state
             # actions = self.navigation.forward(previous_state, current_state, future_state)
             actions = self.navigation.forward(current_state, self.sptm.memory[path[0]].state, future_state)
@@ -42,15 +44,17 @@ class Agent:
             action = pred.data.cpu().item()
             print (action, prob)
 
-            if selected_action == None:
-                selected_action, selected_prob, selected_future_state, selected_index = action, prob, future_state, i
-            if (prob < constants.ACTION_LOOKAHEAD_PROB_THRESHOLD):
-                break
-
-            if (action == 1 or action == 2):
+            if (selected_action == None or prob > constants.ACTION_LOOKAHEAD_PROB_THRESHOLD):
                 selected_action, selected_prob, selected_future_state, selected_index = action, prob, future_state, i
 
-        if (selected_index >= 3):
-            for i in range(path[0], path[selected_index-3]):
-                self.sptm.add_shortcut(i, path[selected_index], selected_prob)
+            # if selected_action == None:
+            #     selected_action, selected_prob, selected_future_state, selected_index = action, prob, future_state, i
+            # if (prob < constants.ACTION_LOOKAHEAD_PROB_THRESHOLD):
+            #     break
+            # if (action == 1 or action == 2):
+            #    selected_action, selected_prob, selected_future_state, selected_index = action, prob, future_state, i
+
+        # if (selected_index >= 3):
+        #     for i in range(path[0], path[selected_index-3]):
+        #         self.sptm.add_shortcut(i, path[selected_index], selected_prob)
         return selected_action, selected_prob, selected_future_state

@@ -3,6 +3,7 @@ import math
 import networkx
 import constants
 from collections import namedtuple
+from collections import deque
 
 from place_recognition import PlaceRecognition
 
@@ -14,6 +15,7 @@ class SPTM:
         self.graph = networkx.Graph()
         self.placeRecognition = placeRecognition
         self.shortcuts = []
+        self.sequence_similarity = deque(maxlen=constants.SEQUENCE_LENGTH)
 
     def append_keyframe(self, input, action=None, terminal=False, position=None):
         rep = self.placeRecognition.forward(input)
@@ -33,6 +35,10 @@ class SPTM:
         self.memory = []
         self.graph = networkx.Graph()
         self.shortcuts = []
+        self.clear_sequence()
+
+    def clear_sequence(self):
+        self.sequence_similarity = deque(maxlen=constants.SEQUENCE_LENGTH)
 
     def build_graph(self, with_shortcuts=True):
         memory_size = len(self.memory)
@@ -76,7 +82,40 @@ class SPTM:
         else:
             return None, -1, 0.0
 
-    def relocalize(self, sequence, backward=False):
+    def relocalize(self, state, backward=False):
+        rep = self.placeRecognition.forward(state).data.cpu() 
+        memory_size = len(self.memory)
+        # Applying SeqSLAM
+        similarity_array = []
+        for index in range(memory_size): # heuristic on the search domain
+            similarity_array.append(self.placeRecognition.compute_similarity_score(self.memory[index].rep, rep))
+
+        self.sequence_similarity.append(similarity_array)
+        sequence_size = len(self.sequence_similarity)
+
+        # print (similarity_matrix)
+
+        max_similarity_score = 0
+        best_velocity = 0
+        matched_index = -1
+        for index in range(memory_size):
+            for sequence_velocity in constants.SEQUENCE_VELOCITIES:
+                similarity_score = 0
+                for sequence_index in range(0, sequence_size):
+                    if backward:
+                        calculated_index = min(int(index + (sequence_velocity * sequence_index)), memory_size-1)
+                    else: # forward
+                        calculated_index = max(int(index - (sequence_velocity * sequence_index)), 0)
+                    similarity_score += self.sequence_similarity[sequence_size - sequence_index - 1][calculated_index]
+                similarity_score /= sequence_size
+                if (similarity_score > max_similarity_score):
+                    matched_index = index
+                    max_similarity_score = similarity_score
+                    best_velocity = sequence_velocity
+
+        return matched_index, max_similarity_score, best_velocity
+
+    def relocalize_old(self, sequence, backward=False):
         sequence_reps = [ self.placeRecognition.forward(frame).data.cpu() for frame in sequence ]
         memory_size = len(self.memory)
         sequence_size = len(sequence)

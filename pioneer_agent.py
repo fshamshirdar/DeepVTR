@@ -74,51 +74,6 @@ class PioneerAgent(Agent):
         self.state = state
         print ("State: {}".format(constants.ROBOT_MODE_STRINGS[self.state]))
 
-    def repeat_backward(self):
-        self.sptm.build_graph()
-        goal, self.goal_index, similarity = self.sptm.find_closest(self.init)
-        if (self.goal_index < 0):
-            print ("cannot find goal")
-            return
-
-        sequence = deque(maxlen=constants.SEQUENCE_LENGTH)
-
-        future_state = self.env.reset()
-        sequence.append(future_state)
-        while (True):
-            matched_index, similarity_score, best_velocity = self.sptm.relocalize(sequence, backward=True)
-            path = self.sptm.find_shortest_path(matched_index, self.goal_index)
-            print (matched_index, similarity_score, best_velocity, path)
-            if (len(path) < 2): # achieved the goal
-                break
-            current_state = self.sptm.memory[path[1]].state
-            if (len(path) > 2):
-                previous_state = self.sptm.memory[path[2]].state
-            else:
-                previous_state = current_state
-
-            from PIL import Image
-            current_image = Image.fromarray(current_state)
-            future_image = Image.fromarray(future_state)
-            current_image.save("current.png", "PNG")
-            future_image.save("future.png", "PNG")
-            actions = self.navigation.forward(previous_state, current_state, future_state)
-            print (actions)
-            prob, pred = torch.max(actions.data, 1)
-            action = pred.data.cpu().item()
-            if (action == 0):
-                action = -1
-            elif (action == 1):
-                action = 2
-            elif (action == 2):
-                action = 1
-            print ("action %d" % action)
-            next_state, _, done, _ = self.env.step(action)
-            future_state = next_state
-            sequence.append(future_state)
-            if (done):
-                break
-
     def hover(self):
         cmd_stop_vel = Twist()
         self.commandPublisher.publish(cmd_stop_vel)
@@ -145,7 +100,6 @@ class PioneerAgent(Agent):
             teach_actions = [int(val) for val in teach_action_file.read().split('\n') if val.isdigit()]
 
         teach_index = 0
-        sequence = deque(maxlen=constants.SEQUENCE_LENGTH)
         previous_state = None
 
         rate = rospy.Rate(10) # 10hz
@@ -219,8 +173,7 @@ class PioneerAgent(Agent):
                 if (previous_state is None):
                     previous_state = current_state
 
-                sequence.append(current_state)
-                matched_index, similarity_score, best_velocity = self.sptm.relocalize(sequence)
+                matched_index, similarity_score, best_velocity = self.sptm.relocalize(current_state)
 
                 # start debug
                 closest_match = self.sptm.memory[matched_index].state
@@ -267,8 +220,7 @@ class PioneerAgent(Agent):
                     rate.sleep()
                     continue
                 current_state = ros_numpy.numpify(self.latest_image)
-                sequence.append(current_state)
-                matched_index, similarity_score, best_velocity = self.sptm.relocalize(sequence)
+                matched_index, similarity_score, best_velocity = self.sptm.relocalize(current_state)
                 print (matched_index, similarity_score, best_velocity)
 
                 # start debug

@@ -145,4 +145,8 @@ if __name__ == "__main__":
         multiAirSimAgent = MultiAirSimAgent(placeRecognition, navigation)
         multiAirSimAgent.run()
     else:
+        navigation = Navigation(args.navigation_checkpoint, use_cuda)
+        import torch.onnx
+        dummy_input = Variable(torch.randn(4, 3, 32, 32))
+        torch.onnx.export(net, dummy_input, "model.onnx")
         pass

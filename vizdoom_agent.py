@@ -101,15 +101,13 @@ class VizDoomAgent(Agent):
             print ("cannot find goal")
             return
 
-        sequence = deque(maxlen=constants.SEQUENCE_LENGTH)
-
         current_state = self.reset_episode()
         print ("state: ", self.game.get_state().game_variables)
         previous_state = current_state
         previous_action = -1
-        sequence.append(current_state)
+        self.sptm.clear_sequence()
         while (True):
-            matched_index, similarity_score, best_velocity = self.sptm.relocalize(sequence)
+            matched_index, similarity_score, best_velocity = self.sptm.relocalize(current_state)
             path = self.sptm.find_shortest_path(matched_index, goal_index)
             print (matched_index, similarity_score, path)
             if (len(path) < 2): # achieved the goal
@@ -153,7 +151,6 @@ class VizDoomAgent(Agent):
             previous_state = current_state
             current_state = next_state
             previous_action = action
-            sequence.append(current_state)
             time.sleep(0.2)
 
     def repeat_backward(self):
@@ -163,12 +160,10 @@ class VizDoomAgent(Agent):
             print ("cannot find goal")
             return
 
-        sequence = deque(maxlen=constants.SEQUENCE_LENGTH)
-
         future_state = self.reset_episode()
-        sequence.append(future_state)
+        self.sptm.clear_sequence()
         while (True):
-            matched_index, similarity_score, best_velocity = self.sptm.relocalize(sequence, backward=True)
+            matched_index, similarity_score, best_velocity = self.sptm.relocalize(future_state, backward=True)
             path = self.sptm.find_shortest_path(matched_index, goal_index)
             print (matched_index, similarity_score, path)
             if (len(path) < 2): # achieved the goal
@@ -197,7 +192,6 @@ class VizDoomAgent(Agent):
             print ("action %d" % action)
             next_state, _, done, _ = self.env.step(action)
             future_state = next_state
-            sequence.append(future_state)
             if (done):
                 break
 

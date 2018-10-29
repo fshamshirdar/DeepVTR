@@ -59,20 +59,18 @@ class AirSimAgent(Agent):
             self.commanded_walk()
         
     def repeat(self):
-        self.sptm.build_graph()
+        self.sptm.build_graph(with_shortcuts=constants.SHORTCUT_ENABLE)
         goal, goal_index, similarity = self.sptm.find_closest(self.goal)
         if (goal_index < 0):
             print ("cannot find goal")
             return
 
-        sequence = deque(maxlen=constants.SEQUENCE_LENGTH)
-
         current_state = self.env.reset()
         previous_state = current_state
         previous_action = -1
-        sequence.append(current_state)
+        self.sptm.clear_sequence()
         while (True):
-            matched_index, similarity_score, best_velocity = self.sptm.relocalize(sequence)
+            matched_index, similarity_score, best_velocity = self.sptm.relocalize(current_state)
             path = self.sptm.find_shortest_path(matched_index, goal_index)
             print (matched_index, similarity_score, path)
             if (len(path) < 2): # achieved the goal
@@ -84,23 +82,23 @@ class AirSimAgent(Agent):
                 future_state = self.sptm.memory[path[1]].state
                 # actions = self.navigation.forward(previous_state, current_state, future_state)
                 # actions = self.navigation.forward(current_state, self.sptm.memory[matched_index].state, future_state)
+
                 actions = self.navigation.forward(current_state, None, future_state)
                 actions = torch.squeeze(actions)
                 sorted_actions, indices = torch.sort(actions, descending=True)
-                print ("actions: ", actions, indices)
                 action = indices[0]
-                if ((previous_action == 0 and action == 5) or
-                    (previous_action == 5 and action == 0) or
-                    (previous_action == 1 and action == 2) or
-                    (previous_action == 2 and action == 1) or
-                    (previous_action == 4 and action == 5) or
-                    (previous_action == 5 and action == 4)):
+                if ((previous_action == constants.ACTION_MOVE_FORWARD and action == constants.ACTION_MOVE_BACKWARD) or
+                    (previous_action == constants.ACTION_MOVE_BACKWARD and action == constants.ACTION_MOVE_FORWARD) or
+                    (previous_action == constants.ACTION_TURN_RIGHT and action == constants.ACTION_TURN_LEFT) or
+                    (previous_action == constants.ACTION_TURN_LEFT and action == constants.ACTION_TURN_RIGHT) or
+                    (previous_action == constants.ACTION_MOVE_RIGHT and action == constants.ACTION_MOVE_LEFT) or
+                    (previous_action == constants.ACTION_MOVE_LEFT and action == constants.ACTION_MOVE_RIGHT)):
                     action = indices[1]
 
                 # prob, pred = torch.max(actions.data, 0)
                 # prob = prob.data.cpu().item()
                 # action = pred.data.cpu().item()
-                # print ("actions: ", actions, action)
+                print ("actions: ", actions, action)
 
                 # select based on probability distribution
                 # action = np.random.choice(np.arange(0, constants.LOCO_NUM_CLASSES), p=actions.data.cpu().numpy())
@@ -115,7 +113,6 @@ class AirSimAgent(Agent):
             previous_state = current_state
             current_state = next_state
             previous_action = action
-            sequence.append(current_state)
             if (done):
                 break
 
@@ -126,12 +123,10 @@ class AirSimAgent(Agent):
             print ("cannot find goal")
             return
 
-        sequence = deque(maxlen=constants.SEQUENCE_LENGTH)
-
         future_state = self.env.reset()
-        sequence.append(future_state)
+        self.sptm.clear_sequence()
         while (True):
-            matched_index, similarity_score, best_velocity = self.sptm.relocalize(sequence, backward=True)
+            matched_index, similarity_score, best_velocity = self.sptm.relocalize(future_state, backward=True)
             path = self.sptm.find_shortest_path(matched_index, goal_index)
             print (matched_index, similarity_score, path)
             if (len(path) < 2): # achieved the goal
@@ -160,7 +155,6 @@ class AirSimAgent(Agent):
             print ("action %d" % action)
             next_state, _, done, _ = self.env.step(action)
             future_state = next_state
-            sequence.append(future_state)
             if (done):
                 break
 
@@ -177,7 +171,7 @@ class AirSimAgent(Agent):
         # time.sleep(1)
         # self.repeat_backward()
 
-        init_position, init_orientation = [10, 2, -6], [0, 0, 0]
+        init_position, init_orientation = [10, 0, -6], [0, 0, 0]
         self.env.set_initial_pose(init_position, init_orientation)
         self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
         time.sleep(1)
