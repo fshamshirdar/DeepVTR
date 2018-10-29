@@ -188,16 +188,7 @@ class PioneerAgent(Agent):
                     self.set_state(constants.ROBOT_MODE_IDLE)
                     continue
 
-                if (constants.ACTION_LOOKAHEAD_ENABLED):
-                    action, prob, future_state = self.path_lookahead(previous_state, current_state, path)
-                else:
-                    future_state = self.sptm.memory[path[1]].state
-                    actions = self.navigation.forward(previous_state, current_state, future_state)
-                    print (actions)
-                    prob, pred = torch.max(actions.data, 1)
-                    prob = prob.data.cpu().item()
-                    action = pred.data.cpu().item()
-                    print ("action %d" % action)
+                action, future_state = self.navigate(current_state, path, previous_action=-1)
 
                 # start debug
                 future_match_message = ros_numpy.msgify(Image, future_state, encoding='rgb8')

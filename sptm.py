@@ -1,11 +1,13 @@
+import sys
 import numpy as np
 import math
 import networkx
-import constants
+import pickle
 from collections import namedtuple
 from collections import deque
 
 from place_recognition import PlaceRecognition
+import constants
 
 Keyframe = namedtuple('Keyframe', 'state, rep, action, terminal, position')
 
@@ -16,6 +18,7 @@ class SPTM:
         self.placeRecognition = placeRecognition
         self.shortcuts = []
         self.sequence_similarity = deque(maxlen=constants.SEQUENCE_LENGTH)
+        self.previous_match_indexes = deque(maxlen=constants.TEMPORALITY_LENGTH)
 
     def append_keyframe(self, input, action=None, terminal=False, position=None):
         rep = self.placeRecognition.forward(input)
@@ -39,6 +42,25 @@ class SPTM:
 
     def clear_sequence(self):
         self.sequence_similarity = deque(maxlen=constants.SEQUENCE_LENGTH)
+        self.previous_match_indexes = deque(maxlen=constants.TEMPORALITY_LENGTH)
+
+    def save(self, filename):
+        try:
+            f = open(filename, "wb")
+            pickle.dump(self.memory, f)
+            return True
+        except IOError:
+            print ("Could not open file!")
+            return False
+
+    def load(self, filename):
+         try:
+            f = open(filename, "rb")
+            self.memory = pickle.load(f)
+            return True
+         except IOError:
+            print ("Could not open file!")
+            return False
 
     def build_graph(self, with_shortcuts=True):
         memory_size = len(self.memory)
@@ -108,10 +130,23 @@ class SPTM:
                         calculated_index = max(int(index - (sequence_velocity * sequence_index)), 0)
                     similarity_score += self.sequence_similarity[sequence_size - sequence_index - 1][calculated_index]
                 similarity_score /= sequence_size
+                # Applying temporality constraint
+                if (constants.TEMPORALITY_ENABLE and len(self.previous_match_indexes) == constants.TEMPORALITY_LENGTH):
+                    average_previous_matches = np.mean(self.previous_match_indexes)
+                    average_previous_matches += constants.TEMPORALITY_OFFSET
+                    if (index >= average_previous_matches):
+                        temporality_distance = constants.TEMPORALITY_FORWARD_GAIN * math.exp(-(math.pow((index-average_previous_matches), 2.0)) / (2.0 * constants.TEMPORALITY_NORM_SIGMA));
+                        similarity_score *= (1.0 + temporality_distance) / (1.0 + constants.TEMPORALITY_FORWARD_GAIN);
+                    else:
+                        temporality_distance = constants.TEMPORALITY_BACKWARD_GAIN * math.exp(-(math.pow((index-average_previous_matches), 2.0)) / (2.0 * constants.TEMPORALITY_NORM_SIGMA));
+                        similarity_score *= (1.0 + temporality_distance) / (1.0 + constants.TEMPORALITY_FORWARD_GAIN);
+
                 if (similarity_score > max_similarity_score):
                     matched_index = index
                     max_similarity_score = similarity_score
                     best_velocity = sequence_velocity
+
+        self.previous_match_indexes.append(matched_index)
 
         return matched_index, max_similarity_score, best_velocity
 

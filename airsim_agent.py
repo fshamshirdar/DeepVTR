@@ -25,9 +25,9 @@ class AirSimAgent(Agent):
         self.init = state
         for i in range(constants.AIRSIM_AGENT_TEACH_LEN):
             action = random.randint(0, constants.LOCO_NUM_CLASSES-1)
-            next_state, _, done, _ = self.env.step(action)
+            next_state, _, done, position = self.env.step(action)
             print ("random walk: index %d action %d" % (i, action))
-            rep, _ = self.sptm.append_keyframe(state, action, done)
+            rep, _ = self.sptm.append_keyframe(state, action, done, position)
             self.goal = state
             state = next_state
             if done:
@@ -43,9 +43,9 @@ class AirSimAgent(Agent):
         i = 0
         actions = [int(val) for val in action_file.read().split('\n') if val.isdigit()]
         for action in actions:
-            next_state, _, done, _ = self.env.step(action)
+            next_state, _, done, position = self.env.step(action)
             print ("commanded walk: index %d action %d" % (i, action))
-            rep, _ = self.sptm.append_keyframe(state, action, done)
+            rep, _ = self.sptm.append_keyframe(state, action, done, position)
             self.goal = state
             state = next_state
             i = i+1
@@ -53,6 +53,9 @@ class AirSimAgent(Agent):
                 break
 
     def teach(self):
+        # while (True):
+        #     action = eval(input("Enter a number: "))
+        #     next_state, _, done, position = self.env.step(action)
         if (self.teachCommandsFile == None):
             self.random_walk()
         else:
@@ -76,33 +79,7 @@ class AirSimAgent(Agent):
             if (len(path) < 2): # achieved the goal
                 break
 
-            if (constants.ACTION_LOOKAHEAD_ENABLED):
-                action, prob, future_state = self.path_lookahead(previous_state, current_state, path)
-            else:
-                future_state = self.sptm.memory[path[1]].state
-                # actions = self.navigation.forward(previous_state, current_state, future_state)
-                # actions = self.navigation.forward(current_state, self.sptm.memory[matched_index].state, future_state)
-
-                actions = self.navigation.forward(current_state, None, future_state)
-                actions = torch.squeeze(actions)
-                sorted_actions, indices = torch.sort(actions, descending=True)
-                action = indices[0]
-                if ((previous_action == constants.ACTION_MOVE_FORWARD and action == constants.ACTION_MOVE_BACKWARD) or
-                    (previous_action == constants.ACTION_MOVE_BACKWARD and action == constants.ACTION_MOVE_FORWARD) or
-                    (previous_action == constants.ACTION_TURN_RIGHT and action == constants.ACTION_TURN_LEFT) or
-                    (previous_action == constants.ACTION_TURN_LEFT and action == constants.ACTION_TURN_RIGHT) or
-                    (previous_action == constants.ACTION_MOVE_RIGHT and action == constants.ACTION_MOVE_LEFT) or
-                    (previous_action == constants.ACTION_MOVE_LEFT and action == constants.ACTION_MOVE_RIGHT)):
-                    action = indices[1]
-
-                # prob, pred = torch.max(actions.data, 0)
-                # prob = prob.data.cpu().item()
-                # action = pred.data.cpu().item()
-                print ("actions: ", actions, action)
-
-                # select based on probability distribution
-                # action = np.random.choice(np.arange(0, constants.LOCO_NUM_CLASSES), p=actions.data.cpu().numpy())
-                # prob = actions[action].data.cpu().item()
+            action, future_state = self.navigate(current_state, path, previous_action)
 
             from PIL import Image
             current_image = Image.fromarray(current_state)
@@ -161,10 +138,15 @@ class AirSimAgent(Agent):
     def run(self):
         init_position, init_orientation = [10, 0, -6], [0, 0, 0]
         self.env.set_initial_pose(init_position, init_orientation)
-        self.env.set_mode(constants.AIRSIM_MODE_TEACH)
-        time.sleep(1)
-        print ("Running teaching phase")
-        self.teach()
+
+        if (self.sptm.load("experiment1.dump") == False):
+            self.env.set_mode(constants.AIRSIM_MODE_TEACH)
+            time.sleep(1)
+            print ("Running teaching phase")
+            self.teach()
+            self.sptm.save("experiment1.dump")
+        else:
+            self.goal = self.sptm.memory[-1].state
 
         # print ("Running repeating backward phase")
         # self.env.set_mode(constants.AIRSIM_MODE_REPEAT)

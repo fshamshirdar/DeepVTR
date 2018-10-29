@@ -6,3 +6,4 @@ checkpoints/
 current.png
 future.png
 _vizdoom.ini
+*.dump

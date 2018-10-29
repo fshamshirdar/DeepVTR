@@ -113,33 +113,8 @@ class VizDoomAgent(Agent):
             if (len(path) < 2): # achieved the goal
                 break
 
-            if (constants.ACTION_LOOKAHEAD_ENABLED):
-                action, prob, future_state = self.path_lookahead(previous_state, current_state, path)
-            else:
-                future_state = self.sptm.memory[path[1]].state
-                # actions = self.navigation.forward(previous_state, current_state, future_state)
-                actions = self.navigation.forward(current_state, self.sptm.memory[matched_index].state, future_state)
-                actions = torch.squeeze(actions)
-                sorted_actions, indices = torch.sort(actions, descending=True)
-                print (actions, indices)
-                action = indices[0]
-                if ((previous_action == 0 and action == 5) or
-                    (previous_action == 5 and action == 0) or
-                    (previous_action == 1 and action == 2) or
-                    (previous_action == 2 and action == 1) or
-                    (previous_action == 4 and action == 5) or
-                    (previous_action == 5 and action == 4)):
-                    action = indices[1]
 
-                # prob, pred = torch.max(actions.data, 1)
-                # prob = prob.data.cpu().item()
-                # action = pred.data.cpu().item()
-                # print ("action %d" % action)
-
-                # select based on probability distribution
-                # action = np.random.choice(np.arange(0, 6), p=actions.data.cpu().numpy()[0])
-                # prob = actions[0][action].data.cpu().item()
-                # end
+            action, future_state = self.navigate(current_state, path, previous_action)
 
             from PIL import Image
             current_image = Image.fromarray(current_state)
@@ -152,48 +127,6 @@ class VizDoomAgent(Agent):
             current_state = next_state
             previous_action = action
             time.sleep(0.2)
-
-    def repeat_backward(self):
-        self.sptm.build_graph()
-        goal, goal_index, similarity = self.sptm.find_closest(self.init)
-        if (goal_index < 0):
-            print ("cannot find goal")
-            return
-
-        future_state = self.reset_episode()
-        self.sptm.clear_sequence()
-        while (True):
-            matched_index, similarity_score, best_velocity = self.sptm.relocalize(future_state, backward=True)
-            path = self.sptm.find_shortest_path(matched_index, goal_index)
-            print (matched_index, similarity_score, path)
-            if (len(path) < 2): # achieved the goal
-                break
-            current_state = self.sptm.memory[path[1]].state
-            if (len(path) > 2):
-                previous_state = self.sptm.memory[path[2]].state
-            else:
-                previous_state = current_state
-
-            from PIL import Image
-            current_image = Image.fromarray(current_state)
-            future_image = Image.fromarray(future_state)
-            current_image.save("current.png", "PNG")
-            future_image.save("future.png", "PNG")
-            actions = self.navigation.forward(previous_state, current_state, future_state)
-            print (actions)
-            prob, pred = torch.max(actions.data, 1)
-            action = pred.data.cpu().item()
-            if (action == 0):
-                action = -1
-            elif (action == 1):
-                action = 2
-            elif (action == 2):
-                action = 1
-            print ("action %d" % action)
-            next_state, _, done, _ = self.env.step(action)
-            future_state = next_state
-            if (done):
-                break
 
     def run(self):
         # init_position, init_orientation = [10, 0, -6], [0, 0, 0]
