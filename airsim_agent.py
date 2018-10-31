@@ -2,6 +2,7 @@ import time
 import random
 import numpy as np
 from collections import deque
+import pickle
 import torch
 import gym
 import gym_airsim
@@ -19,6 +20,7 @@ class AirSimAgent(Agent):
         self.teachCommandsFile = teachCommandsFile
         self.place_recognition.model.eval()
         self.navigation.model.eval()
+        self.positions = []
 
     def random_walk(self):
         state = self.env.reset()
@@ -86,52 +88,11 @@ class AirSimAgent(Agent):
             future_image = Image.fromarray(future_state)
             current_image.save("current.png", "PNG")
             future_image.save("future.png", "PNG")
-            next_state, _, done, _ = self.env.step(action)
+            next_state, _, done, position = self.env.step(action)
             previous_state = current_state
             current_state = next_state
             previous_action = action
-            if (done):
-                break
-
-    def repeat_backward(self):
-        self.sptm.build_graph()
-        goal, goal_index, similarity = self.sptm.find_closest(self.init)
-        if (goal_index < 0):
-            print ("cannot find goal")
-            return
-
-        future_state = self.env.reset()
-        self.sptm.clear_sequence()
-        while (True):
-            matched_index, similarity_score, best_velocity = self.sptm.relocalize(future_state, backward=True)
-            path = self.sptm.find_shortest_path(matched_index, goal_index)
-            print (matched_index, similarity_score, path)
-            if (len(path) < 2): # achieved the goal
-                break
-            current_state = self.sptm.memory[path[1]].state
-            if (len(path) > 2):
-                previous_state = self.sptm.memory[path[2]].state
-            else:
-                previous_state = current_state
-
-            from PIL import Image
-            current_image = Image.fromarray(current_state)
-            future_image = Image.fromarray(future_state)
-            current_image.save("current.png", "PNG")
-            future_image.save("future.png", "PNG")
-            actions = self.navigation.forward(previous_state, current_state, future_state)
-            print (actions)
-            prob, pred = torch.max(actions.data, 1)
-            action = pred.data.cpu().item()
-            if (action == 0):
-                action = -1
-            elif (action == 1):
-                action = 2
-            elif (action == 2):
-                action = 1
-            print ("action %d" % action)
-            next_state, _, done, _ = self.env.step(action)
-            future_state = next_state
+            self.positions.append(position)
             if (done):
                 break
 
@@ -153,16 +114,86 @@ class AirSimAgent(Agent):
         # time.sleep(1)
         # self.repeat_backward()
 
-        init_position, init_orientation = [10, 0, -6], [0, 0, 0]
+        self.positions = []
+        init_position, init_orientation = [30, 5, -6], [0, 0, 0.174533 * 3]
         self.env.set_initial_pose(init_position, init_orientation)
         self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
         time.sleep(1)
         print ("Running repeating phase")
         self.repeat()
 
-        init_position, init_orientation = [10, 0, -6], [0, 0, 0]
+        try:
+            f = open("positions17.txt", 'wb')
+            pickle.dump(self.positions, f)
+        except IOError:
+            print ("Could not open file!")
+
+        self.positions = []
+        init_position, init_orientation = [30, -5, -6], [0, 0, -0.174533 * 3]
         self.env.set_initial_pose(init_position, init_orientation)
         self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
         time.sleep(1)
         print ("Running repeating phase")
         self.repeat()
+
+        try:
+            f = open("positions18.txt", 'wb')
+            pickle.dump(self.positions, f)
+        except IOError:
+            print ("Could not open file!")
+
+        self.positions = []
+        init_position, init_orientation = [40, 5, -6], [0, 0, 0.174533 * 3]
+        self.env.set_initial_pose(init_position, init_orientation)
+        self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
+        time.sleep(1)
+        print ("Running repeating phase")
+        self.repeat()
+
+        try:
+            f = open("positions19.txt", 'wb')
+            pickle.dump(self.positions, f)
+        except IOError:
+            print ("Could not open file!")
+
+        self.positions = []
+        init_position, init_orientation = [40, -5, -6], [0, 0, -0.174533 * 3]
+        self.env.set_initial_pose(init_position, init_orientation)
+        self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
+        time.sleep(1)
+        print ("Running repeating phase")
+        self.repeat()
+
+        try:
+            f = open("positions20.txt", 'wb')
+            pickle.dump(self.positions, f)
+        except IOError:
+            print ("Could not open file!")
+
+        self.positions = []
+        init_position, init_orientation = [50, 5, -6], [0, 0, 0.174533 * 3]
+        self.env.set_initial_pose(init_position, init_orientation)
+        self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
+        time.sleep(1)
+        print ("Running repeating phase")
+        self.repeat()
+
+        try:
+            f = open("positions21.txt", 'wb')
+            pickle.dump(self.positions, f)
+        except IOError:
+            print ("Could not open file!")
+
+        self.positions = []
+        init_position, init_orientation = [50, -5, -6], [0, 0, -0.174533 * 3]
+        self.env.set_initial_pose(init_position, init_orientation)
+        self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
+        time.sleep(1)
+        print ("Running repeating phase")
+        self.repeat()
+
+        try:
+            f = open("positions22.txt", 'wb')
+            pickle.dump(self.positions, f)
+        except IOError:
+            print ("Could not open file!")
