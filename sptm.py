@@ -139,7 +139,7 @@ class SPTM:
                         similarity_score *= (1.0 + temporality_distance) / (1.0 + constants.TEMPORALITY_FORWARD_GAIN);
                     else:
                         temporality_distance = constants.TEMPORALITY_BACKWARD_GAIN * math.exp(-(math.pow((index-average_previous_matches), 2.0)) / (2.0 * constants.TEMPORALITY_NORM_SIGMA));
-                        similarity_score *= (1.0 + temporality_distance) / (1.0 + constants.TEMPORALITY_FORWARD_GAIN);
+                        similarity_score *= (1.0 + temporality_distance) / (1.0 + constants.TEMPORALITY_BACKWARD_GAIN);
 
                 if (similarity_score > max_similarity_score):
                     matched_index = index

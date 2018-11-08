@@ -21,6 +21,7 @@ class AirSimAgent(Agent):
         self.place_recognition.model.eval()
         self.navigation.model.eval()
         self.positions = []
+        self.num_steps = 0
 
     def random_walk(self):
         state = self.env.reset()
@@ -74,6 +75,7 @@ class AirSimAgent(Agent):
         previous_state = current_state
         previous_action = -1
         self.sptm.clear_sequence()
+        self.num_steps = 0
         while (True):
             matched_index, similarity_score, best_velocity = self.sptm.relocalize(current_state)
             path = self.sptm.find_shortest_path(matched_index, goal_index)
@@ -81,7 +83,11 @@ class AirSimAgent(Agent):
             if (len(path) < 2): # achieved the goal
                 break
 
-            action, future_state = self.navigate(current_state, path, previous_action)
+            if (similarity_score > 0.7):
+                action, future_state = self.navigate(current_state, path, previous_action)
+            else:
+                action = 1
+                future_state = current_state
 
             from PIL import Image
             current_image = Image.fromarray(current_state)
@@ -93,7 +99,8 @@ class AirSimAgent(Agent):
             current_state = next_state
             previous_action = action
             self.positions.append(position)
-            if (done):
+            self.num_steps += 1
+            if (done or self.num_steps > 5000):
                 break
 
     def run(self):
@@ -114,86 +121,17 @@ class AirSimAgent(Agent):
         # time.sleep(1)
         # self.repeat_backward()
 
-        self.positions = []
-        init_position, init_orientation = [30, 5, -6], [0, 0, 0.174533 * 3]
-        self.env.set_initial_pose(init_position, init_orientation)
-        self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
-        time.sleep(1)
-        print ("Running repeating phase")
-        self.repeat()
+        for i in range(0, 20):
+            self.positions = []
+            init_position, init_orientation = [10, 0, -6], [0, 0, 0]
+            self.env.set_initial_pose(init_position, init_orientation)
+            self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
+            time.sleep(1)
+            print ("Running repeating phase")
+            self.repeat()
 
-        try:
-            f = open("positions17.txt", 'wb')
-            pickle.dump(self.positions, f)
-        except IOError:
-            print ("Could not open file!")
-
-        self.positions = []
-        init_position, init_orientation = [30, -5, -6], [0, 0, -0.174533 * 3]
-        self.env.set_initial_pose(init_position, init_orientation)
-        self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
-        time.sleep(1)
-        print ("Running repeating phase")
-        self.repeat()
-
-        try:
-            f = open("positions18.txt", 'wb')
-            pickle.dump(self.positions, f)
-        except IOError:
-            print ("Could not open file!")
-
-        self.positions = []
-        init_position, init_orientation = [40, 5, -6], [0, 0, 0.174533 * 3]
-        self.env.set_initial_pose(init_position, init_orientation)
-        self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
-        time.sleep(1)
-        print ("Running repeating phase")
-        self.repeat()
-
-        try:
-            f = open("positions19.txt", 'wb')
-            pickle.dump(self.positions, f)
-        except IOError:
-            print ("Could not open file!")
-
-        self.positions = []
-        init_position, init_orientation = [40, -5, -6], [0, 0, -0.174533 * 3]
-        self.env.set_initial_pose(init_position, init_orientation)
-        self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
-        time.sleep(1)
-        print ("Running repeating phase")
-        self.repeat()
-
-        try:
-            f = open("positions20.txt", 'wb')
-            pickle.dump(self.positions, f)
-        except IOError:
-            print ("Could not open file!")
-
-        self.positions = []
-        init_position, init_orientation = [50, 5, -6], [0, 0, 0.174533 * 3]
-        self.env.set_initial_pose(init_position, init_orientation)
-        self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
-        time.sleep(1)
-        print ("Running repeating phase")
-        self.repeat()
-
-        try:
-            f = open("positions21.txt", 'wb')
-            pickle.dump(self.positions, f)
-        except IOError:
-            print ("Could not open file!")
-
-        self.positions = []
-        init_position, init_orientation = [50, -5, -6], [0, 0, -0.174533 * 3]
-        self.env.set_initial_pose(init_position, init_orientation)
-        self.env.set_mode(constants.AIRSIM_MODE_REPEAT)
-        time.sleep(1)
-        print ("Running repeating phase")
-        self.repeat()
-
-        try:
-            f = open("positions22.txt", 'wb')
-            pickle.dump(self.positions, f)
-        except IOError:
-            print ("Could not open file!")
+            try:
+                f = open("positions{}.txt".format(i), 'wb')
+                pickle.dump(self.positions, f)
+            except IOError:
+                print ("Could not open file!")
