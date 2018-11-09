@@ -76,8 +76,9 @@ class AirSimAgent(Agent):
         previous_action = -1
         self.sptm.clear_sequence()
         self.num_steps = 0
+        temporality_enabled = constants.TEMPORALITY_ENABLE
         while (True):
-            matched_index, similarity_score, best_velocity = self.sptm.relocalize(current_state)
+            matched_index, similarity_score, best_velocity = self.sptm.relocalize(current_state, temporality_enabled)
             path = self.sptm.find_shortest_path(matched_index, goal_index)
             print (matched_index, similarity_score, path)
             if (len(path) < 2): # achieved the goal
@@ -85,9 +86,12 @@ class AirSimAgent(Agent):
 
             if (similarity_score > 0.7):
                 action, future_state = self.navigate(current_state, path, previous_action)
+                temporality_enabled = constants.TEMPORALITY_ENABLE
             else:
                 action = 1
                 future_state = current_state
+                self.sptm.clear_sequence()
+                temporality_enabled = False
 
             from PIL import Image
             current_image = Image.fromarray(current_state)

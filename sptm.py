@@ -104,7 +104,7 @@ class SPTM:
         else:
             return None, -1, 0.0
 
-    def relocalize(self, state, backward=False):
+    def relocalize(self, state, temporality_enabled=constants.TEMPORALITY_ENABLE, backward=False):
         rep = self.placeRecognition.forward(state).data.cpu() 
         memory_size = len(self.memory)
         # Applying SeqSLAM
@@ -131,7 +131,7 @@ class SPTM:
                     similarity_score += self.sequence_similarity[sequence_size - sequence_index - 1][calculated_index]
                 similarity_score /= sequence_size
                 # Applying temporality constraint
-                if (constants.TEMPORALITY_ENABLE and len(self.previous_match_indexes) == constants.TEMPORALITY_LENGTH):
+                if (temporality_enabled and len(self.previous_match_indexes) == constants.TEMPORALITY_LENGTH):
                     average_previous_matches = np.mean(self.previous_match_indexes)
                     average_previous_matches += constants.TEMPORALITY_OFFSET
                     if (index >= average_previous_matches):
@@ -146,7 +146,8 @@ class SPTM:
                     max_similarity_score = similarity_score
                     best_velocity = sequence_velocity
 
-        self.previous_match_indexes.append(matched_index)
+        if (temporality_enabled):
+            self.previous_match_indexes.append(matched_index)
 
         return matched_index, max_similarity_score, best_velocity
 
